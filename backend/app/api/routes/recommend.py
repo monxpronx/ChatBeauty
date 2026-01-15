@@ -6,9 +6,9 @@ from app.services.explanation import generate_explanation
 
 router = APIRouter(prefix="/recommend", tags=["recommend"])
 
-@router.post("/", response_model=RecommendResponse)
+@router.post("", response_model=RecommendResponse)
 def recommed(request: RecommendRequest):
-    candidates = retrieve_candidates()
+    candidates = retrieve_candidates(query=request.user_input)
     ranked_items = rerank_items(candidates,request.top_k)
     explanation = generate_explanation(ranked_items)
     
