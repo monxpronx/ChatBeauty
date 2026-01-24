@@ -108,6 +108,12 @@ def load_metadata(meta_path: str) -> Dict:
                     'title': item.get('title', ''),
                     'features': item.get('features', []),
                     'description': item.get('description', []),
+                    # Additional metadata for ChromaDB
+                    'price': item.get('price'),
+                    'average_rating': item.get('average_rating'),
+                    'store': item.get('store', ''),
+                    'categories': item.get('categories', []),
+                    'main_category': item.get('main_category', ''),
                 }
     return metadata
 
@@ -285,7 +291,13 @@ def merge_all(
                 'review_keywords': review_keywords,
                 'description_summary': description_summary,
                 'features': features,
-                'embedding_text': embedding_text
+                'embedding_text': embedding_text,
+                # Additional metadata for ChromaDB
+                'price': meta.get('price'),
+                'average_rating': meta.get('average_rating'),
+                'store': meta.get('store', ''),
+                'categories': meta.get('categories', []),
+                'main_category': meta.get('main_category', ''),
             }
 
             f_out.write(json.dumps(output_item, ensure_ascii=False) + '\n')
