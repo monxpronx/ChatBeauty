@@ -79,6 +79,12 @@ def save_to_chromadb(
             'review_keywords': ', '.join(item.get('review_keywords', [])),
             'description_summary': ', '.join(item.get('description_summary', [])),
             'features': ', '.join(item.get('features', []))[:500],  # Truncate long features
+            # Additional metadata
+            'price': item.get('price'),
+            'average_rating': item.get('average_rating'),
+            'store': item.get('store', ''),
+            'categories': ', '.join(item.get('categories', [])),
+            'main_category': item.get('main_category', ''),
         })
 
     print(f"Prepared {len(documents)} documents for embedding")
