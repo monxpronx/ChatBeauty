@@ -352,7 +352,7 @@ def main():
 
     # Processing options
     DELAY = float(cli_args.get('DELAY', 0.3 if BACKEND == 'ollama' else 0.0))
-    BATCH_SIZE = int(cli_args.get('BATCH_SIZE', 1 if BACKEND == 'ollama' else 32))
+    BATCH_SIZE = int(cli_args.get('BATCH_SIZE', 1 if BACKEND == 'ollama' else 64))
 
     print("=" * 60)
     print("Metadata Merger + Description Summarizer")

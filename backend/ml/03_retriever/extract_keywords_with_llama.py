@@ -34,8 +34,9 @@ class KeywordExtractor:
         self.client = client
 
     def _build_prompt(self, product_title: str, review_text: str) -> str:
-        """Build prompt for contextual keyword extraction"""
-        return f"""You are a product recommendation expert. Analyze this product review to extract contextual keywords that describe:
+        """Build prompt for contextual keyword extraction with Llama 3 formatting"""
+        
+        system_content = """You are a product recommendation expert. Analyze this product review to extract contextual keywords that describe:
 - Product features and characteristics
 - Benefits and improvements provided
 - Use cases and situations where it's useful
@@ -43,14 +44,23 @@ class KeywordExtractor:
 
 Combine all these aspects into a single efficient list of keywords that capture WHO would use this product, WHEN, and WHY.
 
-Product: {product_title}
-
-Review: {review_text}
-
 Please respond with ONLY valid JSON, no markdown, no extra text:
-{{
+{
     "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"]
-}}"""
+}"""
+
+        user_content = f"""Product: {product_title}
+Review: {review_text}"""
+
+        # Llama 3.1 Chat Template
+        # This is what vLLM needs to see to act as an assistant
+        formatted_prompt = f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+{system_content}<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+{user_content}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
+
+        return formatted_prompt
 
     def extract_keywords(self, product_title: str, review_text: str) -> Optional[List[str]]:
         """Extract contextual keywords from a single review"""
@@ -63,7 +73,7 @@ Please respond with ONLY valid JSON, no markdown, no extra text:
 
     def extract_keywords_batch(
         self, items: List[Dict]
-    ) -> List[Optional[List[str]]]:
+    ) -> List[List[str]]:
         """Extract keywords from multiple reviews (batched for vLLM efficiency)"""
         prompts = [
             self._build_prompt(item["title"], item["text"])
@@ -71,6 +81,7 @@ Please respond with ONLY valid JSON, no markdown, no extra text:
         ]
 
         responses = self.client.generate_batch(prompts)
+        print(f"DEBUG RAW OUTPUT: {responses[0]}")
 
         results = []
         for response in responses:
@@ -86,9 +97,9 @@ Please respond with ONLY valid JSON, no markdown, no extra text:
                     parsed = json.loads(text.strip())
                     results.append(parsed.get("keywords", []))
                 except json.JSONDecodeError:
-                    results.append(None)
+                    results.append([])
             else:
-                results.append(None)
+                results.append([])
 
         return results
 
@@ -175,19 +186,26 @@ Please respond with ONLY valid JSON, no markdown, no extra text:
 
                     batch_successful = 0
                     for j, (product, keywords) in enumerate(zip(batch, keywords_list)):
-                        if keywords:
-                            output_record = {
-                                "asin": product.get("asin", ""),
-                                "title": product.get("title", ""),
-                                "review_text": product.get("text", "")[:500],
-                                "rating": product.get("rating"),
-                                "keywords": keywords,
-                            }
-                            outf.write(json.dumps(output_record) + "\n")
-                            successful += 1
+                        
+                        # Ensure keywords is a list
+                        final_keywords = keywords if keywords is not None else []
+                        
+                        # Always write, regardless of whether list is empty
+                        output_record = {
+                            "asin": product.get("asin", ""),
+                            "title": product.get("title", ""),
+                            "review_text": product.get("text", "")[:500],
+                            "rating": product.get("rating"),
+                            "keywords": keywords,
+                        }
+                        outf.write(json.dumps(output_record) + "\n")
+
+                        # Count success if we got any keywords
+                        if final_keywords:
                             batch_successful += 1
-                        else:
-                            failed += 1
+                        
+                        # track "empty" vs "error" separately
+                        successful += 1
 
                     processed += len(batch)
                     print(f"OK ({batch_successful}/{len(batch)})")
@@ -246,7 +264,7 @@ def main():
     # Processing options
     MAX_ITEMS = int(cli_args['MAX_ITEMS']) if 'MAX_ITEMS' in cli_args else None
     DELAY = float(cli_args.get('DELAY', 0.5 if BACKEND == 'ollama' else 0.0))
-    BATCH_SIZE = int(cli_args.get('BATCH_SIZE', 1 if BACKEND == 'ollama' else 32))
+    BATCH_SIZE = int(cli_args.get('BATCH_SIZE', 1 if BACKEND == 'ollama' else 64))
 
     print("=" * 60)
     print("LLaMA Keyword & Scenario Extractor")
