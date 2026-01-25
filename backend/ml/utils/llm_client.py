@@ -163,6 +163,7 @@ class VLLMDirectBackend(BaseLLMBackend):
             model=self.model_name,
             tensor_parallel_size=tensor_parallel_size,
             gpu_memory_utilization=self.gpu_memory_utilization,
+            max_model_len=8192,
             trust_remote_code=True,
         )
 
@@ -247,7 +248,7 @@ class LLMClient:
         model: Optional[str] = None,
         temperature: float = 0.3,
         top_p: float = 0.9,
-        max_tokens: int = 512,
+        max_tokens: int = 1024,
         gpu_ids: Optional[List[int]] = None,
         gpu_memory_utilization: float = 0.8,
         timeout: int = 60
