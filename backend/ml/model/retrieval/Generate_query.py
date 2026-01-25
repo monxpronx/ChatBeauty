@@ -176,29 +176,10 @@ def _load_env_file(env_path: Path) -> None:
         return
 
 
-def _load_env_files_upwards(start_dir: Path) -> None:
-    """Load .env / .env.example from start_dir and its parents (best-effort).
-
-    This makes it easy to run this script from a nested directory while keeping
-    secrets/config at a higher-level project root.
-    """
-
-    try:
-        start_dir = start_dir.resolve()
-    except Exception:
-        # If resolve fails, still attempt with the given path.
-        pass
-
-    # Include start_dir itself and all parents up to filesystem root.
-    for d in (start_dir,) + tuple(start_dir.parents):
-        _load_env_file(d / ".env")
-        _load_env_file(d / ".env.example")
-
-
 def _get_hf_token() -> str:
-    # Try multiple locations (script dir + current working directory), walking up parents.
-    _load_env_files_upwards(Path(__file__).parent)
-    _load_env_files_upwards(Path.cwd())
+    _load_env_file(Path(__file__).with_name(".env"))
+    # Convenience: also read .env.example if present (does not override existing env vars).
+    _load_env_file(Path(__file__).with_name(".env.example"))
 
     token = os.getenv("HF_TOKEN")
     if token:
