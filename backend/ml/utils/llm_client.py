@@ -125,16 +125,28 @@ class VLLMDirectBackend(BaseLLMBackend):
         self.gpu_memory_utilization = gpu_memory_utilization
         self._llm = None
         self._sampling_params = None
+        self._init_failed = False  # Track if initialization already failed
+
+        # IMPORTANT: Set CUDA_VISIBLE_DEVICES BEFORE importing torch/vllm
+        if self.gpu_ids:
+            import os
+            os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, self.gpu_ids))
+            print(f"[vLLM] Setting CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
 
     def _init_model(self):
         """Initialize vLLM model (lazy loading)"""
         if self._llm is not None:
             return
 
+        # Don't retry if initialization already failed
+        if self._init_failed:
+            raise RuntimeError("[vLLM] Model initialization previously failed. Restart the process to retry.")
+
         try:
             import torch
             from vllm import LLM, SamplingParams
         except ImportError:
+            self._init_failed = True
             raise ImportError(
                 "vLLM not installed. Install with: pip install vllm"
             )
@@ -146,12 +158,11 @@ class VLLMDirectBackend(BaseLLMBackend):
             for i in range(gpu_count):
                 print(f"  GPU {i}: {torch.cuda.get_device_name(i)}")
         else:
+            self._init_failed = True
             raise RuntimeError("[vLLM] No GPU available. vLLM requires CUDA.")
 
-        # Set GPU visibility if specific GPUs requested
+        # Determine tensor parallel size
         if self.gpu_ids:
-            import os
-            os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, self.gpu_ids))
             tensor_parallel_size = len(self.gpu_ids)
             print(f"[vLLM] Using GPUs: {self.gpu_ids}")
         else:
@@ -163,7 +174,7 @@ class VLLMDirectBackend(BaseLLMBackend):
             model=self.model_name,
             tensor_parallel_size=tensor_parallel_size,
             gpu_memory_utilization=self.gpu_memory_utilization,
-            max_model_len=8192,
+            max_model_length=8192,
             trust_remote_code=True,
         )
 
@@ -198,9 +209,10 @@ class VLLMDirectBackend(BaseLLMBackend):
 
     def generate_batch(self, prompts: List[str], **kwargs) -> List[Optional[str]]:
         """Generate text for multiple prompts (batched for efficiency)"""
-        try:
-            self._init_model()
+        # Initialize model (will raise if init failed before)
+        self._init_model()
 
+        try:
             from vllm import SamplingParams
 
             # Override sampling params if provided
