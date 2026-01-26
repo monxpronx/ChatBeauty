@@ -42,26 +42,39 @@ class DescriptionSummarizer:
         self.client = client
 
     def _build_prompt(self, description: str) -> str:
-        """Build prompt for description summarization"""
-        return f"""Summarize this product description into 2-5 short keywords or phrases that capture the main use cases and benefits. Focus on WHO would use it and WHAT situations it's good for.
+        """Build prompt for description summarization using Llama 3.1 Template"""
+        
+        system_content = """You are a product content editor. 
+Summarize the provided product description into a concise list of 2-5 keywords or short phrases.
+Focus on:
+- Main use cases (Who uses it?)
+- Key benefits (Why use it?)
+- Situations (When to use it?)
 
-Description: {description}
+Respond with ONLY valid JSON, no markdown, no conversational text.
+Example format: {"summary": ["feature 1", "benefit 2", "use case 3"]}"""
 
-Respond with ONLY valid JSON, no markdown:
-{{"summary": ["keyword1", "keyword2", "keyword3"]}}"""
+        user_content = f"""Description: {description}"""
+
+        # Llama 3.1 Chat Template (Critical for vLLM)
+        return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+{system_content}<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+{user_content}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
 
     def summarize(self, description: str) -> Optional[List[str]]:
         """Summarize a single description"""
         if not description or len(description.strip()) < 10:
             return None
 
-        result = self.client.generate_json(self._build_prompt(description))
-        if result:
-            return result.get("summary", [])
-        return None
+        # 단일 처리도 batch 로직을 재사용하는 것이 안전함
+        return self.summarize_batch([description])[0]
 
     def summarize_batch(self, descriptions: List[str]) -> List[Optional[List[str]]]:
         """Summarize multiple descriptions (batched for vLLM efficiency)"""
+        import re
+
         # Filter valid descriptions
         valid_indices = []
         prompts = []
@@ -76,22 +89,34 @@ Respond with ONLY valid JSON, no markdown:
         # Generate responses
         responses = self.client.generate_batch(prompts)
 
+        # --- DEBUG LOGGING (Check if model works) ---
+        if responses and len(responses) > 0:
+            print(f"\n[DEBUG] Raw Output Example: {str(responses[0])[:100]}...")
+        # --------------------------------------------
+
         # Map results back
         results = [None] * len(descriptions)
+
         for idx, response in zip(valid_indices, responses):
             if response:
                 try:
-                    text = response
-                    if text.startswith("```json"):
-                        text = text[7:]
-                    if text.startswith("```"):
-                        text = text[3:]
-                    if text.endswith("```"):
-                        text = text[:-3]
-                    parsed = json.loads(text.strip())
-                    results[idx] = parsed.get("summary", [])
-                except json.JSONDecodeError:
-                    pass
+                    text = response.strip()
+                    # --- Smart Parsing: 텍스트 안에서 JSON 객체만 찾아내기 ---
+                    json_match = re.search(r'\{.*\}', text, re.DOTALL)
+                    
+                    if json_match:
+                        clean_json = json_match.group(0)
+                        parsed = json.loads(clean_json)
+                        results[idx] = parsed.get("summary", [])
+                    else:
+                        # 디버깅: JSON을 못 찾았을 때 로그 출력
+                        # print(f"[DEBUG] Parsing Failed. Raw: {text[:100]}...")
+                        results[idx] = []
+                        
+                except (json.JSONDecodeError, AttributeError):
+                    results[idx] = []
+            else:
+                results[idx] = []
 
         return results
 
@@ -118,6 +143,44 @@ def load_metadata(meta_path: str) -> Dict:
     return metadata
 
 
+def aggregate_keywords_by_item(keywords_path: str) -> Dict[str, List[str]]:
+    """
+    Aggregate all review keywords per item (asin).
+
+    Since multiple reviews exist per item, we need to merge all keywords
+    into a single list per item for creating one embedding vector per item.
+
+    Returns:
+        Dict mapping asin -> list of unique keywords (deduplicated, ordered by frequency)
+    """
+    from collections import Counter
+
+    item_keywords: Dict[str, Counter] = {}
+
+    with open(keywords_path, 'r', encoding='utf-8') as f:
+        for line in tqdm(f, desc="Aggregating keywords by item"):
+            item = json.loads(line)
+            asin = item.get('asin')
+            keywords = item.get('keywords', [])
+
+            if asin not in item_keywords:
+                item_keywords[asin] = Counter()
+
+            # Count keyword occurrences across reviews
+            for kw in keywords:
+                if kw:  # skip empty strings
+                    item_keywords[asin][kw.strip()] += 1
+
+    # Convert to sorted list (most frequent first, then alphabetically)
+    aggregated = {}
+    for asin, kw_counter in item_keywords.items():
+        # Sort by frequency (desc), then alphabetically for ties
+        sorted_keywords = sorted(kw_counter.keys(), key=lambda k: (-kw_counter[k], k))
+        aggregated[asin] = sorted_keywords
+
+    print(f"Aggregated keywords for {len(aggregated)} unique items")
+    return aggregated
+
 def format_description(description: list) -> str:
     """Convert description list to single string"""
     if not description:
@@ -141,13 +204,19 @@ def create_embedding_text(
         parts.append(f"[Title] {title}")
 
     if review_keywords:
-        parts.append(f"[Review Keywords] {', '.join(review_keywords)}")
+        # 리스트 안에 숫자가 있어도 강제로 문자열로 변환 (str(k))
+        cleaned_keywords = [str(k) for k in review_keywords if k is not None]
+        parts.append(f"[Review Keywords] {', '.join(cleaned_keywords)}")
 
     if description_summary:
-        parts.append(f"[Description Summary] {', '.join(description_summary)}")
+        # 문자열 변환 추가
+        cleaned_summary = [str(s) for s in description_summary if s is not None]
+        parts.append(f"[Description Summary] {', '.join(cleaned_summary)}")
 
     if features:
-        parts.append(f"[Features] {', '.join(features)}")
+        # 문자열 변환 추가
+        cleaned_features = [str(f) for f in features if f is not None]
+        parts.append(f"[Features] {', '.join(cleaned_features)}")
 
     return ' '.join(parts)
 
@@ -255,8 +324,12 @@ def merge_all(
         print("Skipping LLM summarization (no client provided)")
         description_summaries = {}
 
-    # Step 3: Merge with keywords
-    print(f"\n=== Step 3: Merging with keywords ===")
+    # Step 3: Aggregate keywords from all reviews per item
+    print(f"\n=== Step 3: Aggregating review keywords per item ===")
+    aggregated_keywords = aggregate_keywords_by_item(keywords_path)
+
+    # Step 4: Merge all data and create embedding text per item
+    print(f"\n=== Step 4: Creating item embeddings ===")
     matched = 0
     unmatched = 0
 
@@ -335,6 +408,7 @@ def main():
     BACKEND = cli_args.get('BACKEND', 'ollama').lower()
     MODEL = cli_args.get('MODEL')
     GPU = cli_args.get('GPU')
+    GPU_MEM = cli_args.get('GPU_MEM') # GPU memory utilization (0.0-1.0)
     USE_LLM = cli_args.get('USE_LLM', 'true').lower() != 'false'
 
     # Parse GPU IDs
@@ -342,6 +416,11 @@ def main():
     if GPU:
         gpu_ids = [int(g.strip()) for g in GPU.split(',')]
 
+    # Parse GPU memory utilization
+    gpu_memory_utilization = 0.8 # default
+    if GPU_MEM:
+        gpu_memory_utilization = float(GPU_MEM)
+        
     # File paths
     base_dir = Path(__file__).parent.parent.parent  # backend/
 
@@ -363,6 +442,8 @@ def main():
         print(f"Model: {MODEL}")
     if gpu_ids:
         print(f"GPUs: {gpu_ids}")
+    if BACKEND == 'vllm':
+        print(f"GPU Memory Utilization: {gpu_memory_utilization}")
     print(f"Batch size: {BATCH_SIZE}")
     print()
 
@@ -374,6 +455,8 @@ def main():
             client_kwargs["model"] = MODEL
         if gpu_ids:
             client_kwargs["gpu_ids"] = gpu_ids
+        if BACKEND == 'vllm':
+            client_kwargs["gpu_memory_utilization"] = gpu_memory_utilization
 
         client = LLMClient(**client_kwargs)
 
