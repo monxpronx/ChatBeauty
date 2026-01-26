@@ -168,15 +168,43 @@ class VLLMDirectBackend(BaseLLMBackend):
         else:
             tensor_parallel_size = gpu_count
 
-        # Initialize vLLM
+        # Initialize vLLM with version-safe parameters
         print(f"[vLLM] Loading model: {self.model_name}")
-        self._llm = LLM(
-            model=self.model_name,
-            tensor_parallel_size=tensor_parallel_size,
-            gpu_memory_utilization=self.gpu_memory_utilization,
-            max_model_length=8192,
-            trust_remote_code=True,
-        )
+        try:
+            # Check vLLM version for API compatibility
+            import vllm
+            vllm_version = getattr(vllm, "__version__", "0.0.0")
+            print(f"[vLLM] vLLM version: {vllm_version}")
+
+            # Base kwargs that work across versions
+            llm_kwargs = {
+                "model": self.model_name,
+                "tensor_parallel_size": tensor_parallel_size,
+                "gpu_memory_utilization": self.gpu_memory_utilization,
+                "trust_remote_code": True,
+                "max_model_len": 4096,
+            }
+
+            self._llm = LLM(**llm_kwargs)
+        except TypeError as e:
+            # Handle API changes between vLLM versions
+            if "unexpected keyword argument" in str(e):
+                print(f"[vLLM] Warning: API compatibility issue, trying minimal config: {e}")
+                try:
+                    self._llm = LLM(
+                        model=self.model_name,
+                        max_model_len=4096,
+                        trust_remote_code=True,
+                    )
+                except Exception as e2:
+                    self._init_failed = True
+                    raise RuntimeError(f"[vLLM] Failed with minimal config: {e2}")
+            else:
+                self._init_failed = True
+                raise RuntimeError(f"[vLLM] Failed to initialize model: {e}")
+        except Exception as e:
+            self._init_failed = True
+            raise RuntimeError(f"[vLLM] Failed to initialize model: {e}")
 
         self._sampling_params = SamplingParams(
             temperature=self.temperature,
@@ -260,7 +288,7 @@ class LLMClient:
         model: Optional[str] = None,
         temperature: float = 0.3,
         top_p: float = 0.9,
-        max_tokens: int = 1024,
+        max_tokens: int = 512,
         gpu_ids: Optional[List[int]] = None,
         gpu_memory_utilization: float = 0.8,
         timeout: int = 60
