@@ -42,26 +42,39 @@ class DescriptionSummarizer:
         self.client = client
 
     def _build_prompt(self, description: str) -> str:
-        """Build prompt for description summarization"""
-        return f"""Summarize this product description into 2-5 short keywords or phrases that capture the main use cases and benefits. Focus on WHO would use it and WHAT situations it's good for.
+        """Build prompt for description summarization using Llama 3.1 Template"""
+        
+        system_content = """You are a product content editor. 
+Summarize the provided product description into a concise list of 2-5 keywords or short phrases.
+Focus on:
+- Main use cases (Who uses it?)
+- Key benefits (Why use it?)
+- Situations (When to use it?)
 
-Description: {description}
+Respond with ONLY valid JSON, no markdown, no conversational text.
+Example format: {"summary": ["feature 1", "benefit 2", "use case 3"]}"""
 
-Respond with ONLY valid JSON, no markdown:
-{{"summary": ["keyword1", "keyword2", "keyword3"]}}"""
+        user_content = f"""Description: {description}"""
+
+        # Llama 3.1 Chat Template (Critical for vLLM)
+        return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+{system_content}<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+{user_content}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
 
     def summarize(self, description: str) -> Optional[List[str]]:
         """Summarize a single description"""
         if not description or len(description.strip()) < 10:
             return None
 
-        result = self.client.generate_json(self._build_prompt(description))
-        if result:
-            return result.get("summary", [])
-        return None
+        # 단일 처리도 batch 로직을 재사용하는 것이 안전함
+        return self.summarize_batch([description])[0]
 
     def summarize_batch(self, descriptions: List[str]) -> List[Optional[List[str]]]:
         """Summarize multiple descriptions (batched for vLLM efficiency)"""
+        import re
+
         # Filter valid descriptions
         valid_indices = []
         prompts = []
@@ -76,22 +89,34 @@ Respond with ONLY valid JSON, no markdown:
         # Generate responses
         responses = self.client.generate_batch(prompts)
 
+        # --- DEBUG LOGGING (Check if model works) ---
+        if responses and len(responses) > 0:
+            print(f"\n[DEBUG] Raw Output Example: {str(responses[0])[:100]}...")
+        # --------------------------------------------
+
         # Map results back
         results = [None] * len(descriptions)
+
         for idx, response in zip(valid_indices, responses):
             if response:
                 try:
-                    text = response
-                    if text.startswith("```json"):
-                        text = text[7:]
-                    if text.startswith("```"):
-                        text = text[3:]
-                    if text.endswith("```"):
-                        text = text[:-3]
-                    parsed = json.loads(text.strip())
-                    results[idx] = parsed.get("summary", [])
-                except json.JSONDecodeError:
-                    pass
+                    text = response.strip()
+                    # --- Smart Parsing: 텍스트 안에서 JSON 객체만 찾아내기 ---
+                    json_match = re.search(r'\{.*\}', text, re.DOTALL)
+                    
+                    if json_match:
+                        clean_json = json_match.group(0)
+                        parsed = json.loads(clean_json)
+                        results[idx] = parsed.get("summary", [])
+                    else:
+                        # 디버깅: JSON을 못 찾았을 때 로그 출력
+                        # print(f"[DEBUG] Parsing Failed. Raw: {text[:100]}...")
+                        results[idx] = []
+                        
+                except (json.JSONDecodeError, AttributeError):
+                    results[idx] = []
+            else:
+                results[idx] = []
 
         return results
 
@@ -180,13 +205,19 @@ def create_embedding_text(
         parts.append(f"[Title] {title}")
 
     if review_keywords:
-        parts.append(f"[Review Keywords] {', '.join(review_keywords)}")
+        # 리스트 안에 숫자가 있어도 강제로 문자열로 변환 (str(k))
+        cleaned_keywords = [str(k) for k in review_keywords if k is not None]
+        parts.append(f"[Review Keywords] {', '.join(cleaned_keywords)}")
 
     if description_summary:
-        parts.append(f"[Description Summary] {', '.join(description_summary)}")
+        # 문자열 변환 추가
+        cleaned_summary = [str(s) for s in description_summary if s is not None]
+        parts.append(f"[Description Summary] {', '.join(cleaned_summary)}")
 
     if features:
-        parts.append(f"[Features] {', '.join(features)}")
+        # 문자열 변환 추가
+        cleaned_features = [str(f) for f in features if f is not None]
+        parts.append(f"[Features] {', '.join(cleaned_features)}")
 
     return ' '.join(parts)
 
@@ -303,8 +334,13 @@ def merge_all(
     matched = 0
     unmatched = 0
 
-    with open(output_path, 'w', encoding='utf-8') as f_out:
-        for asin, review_keywords in tqdm(aggregated_keywords.items(), desc="Merging data"):
+    with open(keywords_path, 'r', encoding='utf-8') as f_in, \
+         open(output_path, 'w', encoding='utf-8') as f_out:
+
+        for line in tqdm(f_in, desc="Merging data"):
+            item = json.loads(line)
+            asin = item.get('asin')
+
             meta = metadata.get(asin, {})
             if meta:
                 matched += 1
@@ -312,6 +348,7 @@ def merge_all(
                 unmatched += 1
 
             title = meta.get('title', '')
+            review_keywords = item.get('keywords', [])
             description_summary = description_summaries.get(asin, [])
             features = meta.get('features', [])
 
@@ -340,7 +377,6 @@ def merge_all(
             f_out.write(json.dumps(output_item, ensure_ascii=False) + '\n')
 
     print(f"\n=== Merge Complete ===")
-    print(f"  Total items (1 vector per item): {len(aggregated_keywords)}")
     print(f"  Matched with metadata: {matched}")
     print(f"  Unmatched: {unmatched}")
     print(f"  Output saved to: {output_path}")
@@ -397,7 +433,7 @@ def main():
 
     # Processing options
     DELAY = float(cli_args.get('DELAY', 0.3 if BACKEND == 'ollama' else 0.0))
-    BATCH_SIZE = int(cli_args.get('BATCH_SIZE', 1 if BACKEND == 'ollama' else 32))
+    BATCH_SIZE = int(cli_args.get('BATCH_SIZE', 1 if BACKEND == 'ollama' else 64))
 
     print("=" * 60)
     print("Metadata Merger + Description Summarizer")

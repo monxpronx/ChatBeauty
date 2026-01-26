@@ -171,7 +171,7 @@ class VLLMDirectBackend(BaseLLMBackend):
         # Initialize vLLM with version-safe parameters
         print(f"[vLLM] Loading model: {self.model_name}")
         try:
-            # Check vLLM version for API compatibility
+            # Check vlLM version for API compatibility
             import vllm
             vllm_version = getattr(vllm, "__version__", "0.0.0")
             print(f"[vLLM] vLLM version: {vllm_version}")
@@ -182,6 +182,7 @@ class VLLMDirectBackend(BaseLLMBackend):
                 "tensor_parallel_size": tensor_parallel_size,
                 "gpu_memory_utilization": self.gpu_memory_utilization,
                 "trust_remote_code": True,
+                "max_model_len": 4096,
             }
 
             self._llm = LLM(**llm_kwargs)
@@ -192,6 +193,7 @@ class VLLMDirectBackend(BaseLLMBackend):
                 try:
                     self._llm = LLM(
                         model=self.model_name,
+                        max_model_len=4096,
                         trust_remote_code=True,
                     )
                 except Exception as e2:
