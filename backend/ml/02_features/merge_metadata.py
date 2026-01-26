@@ -168,8 +168,8 @@ def aggregate_keywords_by_item(keywords_path: str) -> Dict[str, List[str]]:
 
             # Count keyword occurrences across reviews
             for kw in keywords:
-                if kw:  # skip empty strings
-                    item_keywords[asin][kw.strip()] += 1
+                if kw is not None and kw != '':  # skip empty/None values
+                    item_keywords[asin][str(kw).strip()] += 1
 
     # Convert to sorted list (most frequent first, then alphabetically)
     aggregated = {}
