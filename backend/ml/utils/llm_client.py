@@ -168,15 +168,38 @@ class VLLMDirectBackend(BaseLLMBackend):
         else:
             tensor_parallel_size = gpu_count
 
-        # Initialize vLLM
+        # Initialize vLLM with version-safe parameters
         print(f"[vLLM] Loading model: {self.model_name}")
         try:
-            self._llm = LLM(
-                model=self.model_name,
-                tensor_parallel_size=tensor_parallel_size,
-                gpu_memory_utilization=self.gpu_memory_utilization,
-                trust_remote_code=True,
-            )
+            # Check vLLM version for API compatibility
+            import vllm
+            vllm_version = getattr(vllm, "__version__", "0.0.0")
+            print(f"[vLLM] vLLM version: {vllm_version}")
+
+            # Base kwargs that work across versions
+            llm_kwargs = {
+                "model": self.model_name,
+                "tensor_parallel_size": tensor_parallel_size,
+                "gpu_memory_utilization": self.gpu_memory_utilization,
+                "trust_remote_code": True,
+            }
+
+            self._llm = LLM(**llm_kwargs)
+        except TypeError as e:
+            # Handle API changes between vLLM versions
+            if "unexpected keyword argument" in str(e):
+                print(f"[vLLM] Warning: API compatibility issue, trying minimal config: {e}")
+                try:
+                    self._llm = LLM(
+                        model=self.model_name,
+                        trust_remote_code=True,
+                    )
+                except Exception as e2:
+                    self._init_failed = True
+                    raise RuntimeError(f"[vLLM] Failed with minimal config: {e2}")
+            else:
+                self._init_failed = True
+                raise RuntimeError(f"[vLLM] Failed to initialize model: {e}")
         except Exception as e:
             self._init_failed = True
             raise RuntimeError(f"[vLLM] Failed to initialize model: {e}")
