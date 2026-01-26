@@ -76,14 +76,14 @@ def save_to_chromadb(
         ids.append(item['asin'])
         metadatas.append({
             'title': item.get('title', ''),
-            'review_keywords': ', '.join(item.get('review_keywords', [])),
-            'description_summary': ', '.join(item.get('description_summary', [])),
-            'features': ', '.join(item.get('features', []))[:500],  # Truncate long features
+            'review_keywords': ', '.join(str(k) for k in item.get('review_keywords', [])),
+            'description_summary': ', '.join(str(s) for s in item.get('description_summary', [])),
+            'features': ', '.join(str(f) for f in item.get('features', []))[:500],  # Truncate long features
             # Additional metadata
             'price': item.get('price'),
             'average_rating': item.get('average_rating'),
             'store': item.get('store', ''),
-            'categories': ', '.join(item.get('categories', [])),
+            'categories': ', '.join(str(c) for c in item.get('categories', [])),
             'main_category': item.get('main_category', ''),
         })
 
