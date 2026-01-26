@@ -399,6 +399,7 @@ def main():
         python merge_metadata.py                          # Ollama (default)
         python merge_metadata.py BACKEND=vllm             # vLLM with auto GPU
         python merge_metadata.py BACKEND=vllm GPU=0,1     # vLLM with specific GPUs
+        python merge_metadata.py BACKEND=vllm GPU_MEM=0.5 # vLLM with 50% GPU memory
         python merge_metadata.py USE_LLM=false            # Skip description summarization
         python merge_metadata.py BATCH_SIZE=32            # Batch size for vLLM
     """
@@ -408,19 +409,19 @@ def main():
     BACKEND = cli_args.get('BACKEND', 'ollama').lower()
     MODEL = cli_args.get('MODEL')
     GPU = cli_args.get('GPU')
-    GPU_MEM = cli_args.get('GPU_MEM') # GPU memory utilization (0.0-1.0)
+    GPU_MEM = cli_args.get('GPU_MEM')  # GPU memory utilization (0.0-1.0)
     USE_LLM = cli_args.get('USE_LLM', 'true').lower() != 'false'
 
     # Parse GPU IDs
     gpu_ids = None
     if GPU:
         gpu_ids = [int(g.strip()) for g in GPU.split(',')]
-
+        
     # Parse GPU memory utilization
-    gpu_memory_utilization = 0.8 # default
+    gpu_memory_utilization = 0.8  # default
     if GPU_MEM:
         gpu_memory_utilization = float(GPU_MEM)
-        
+
     # File paths
     base_dir = Path(__file__).parent.parent.parent  # backend/
 
@@ -443,7 +444,7 @@ def main():
     if gpu_ids:
         print(f"GPUs: {gpu_ids}")
     if BACKEND == 'vllm':
-        print(f"GPU Memory Utilization: {gpu_memory_utilization}")
+        print(f"GPU memory utilization: {gpu_memory_utilization}")
     print(f"Batch size: {BATCH_SIZE}")
     print()
 
