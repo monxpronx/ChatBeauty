@@ -181,6 +181,7 @@ def aggregate_keywords_by_item(keywords_path: str) -> Dict[str, List[str]]:
     print(f"Aggregated keywords for {len(aggregated)} unique items")
     return aggregated
 
+
 def format_description(description: list) -> str:
     """Convert description list to single string"""
     if not description:
@@ -330,16 +331,17 @@ def merge_all(
 
     # Step 4: Merge all data and create embedding text per item
     print(f"\n=== Step 4: Creating item embeddings ===")
+    # Step 3: Aggregate keywords from all reviews per item
+    print(f"\n=== Step 3: Aggregating review keywords per item ===")
+    aggregated_keywords = aggregate_keywords_by_item(keywords_path)
+
+    # Step 4: Merge all data and create embedding text per item
+    print(f"\n=== Step 4: Creating item embeddings ===")
     matched = 0
     unmatched = 0
 
-    with open(keywords_path, 'r', encoding='utf-8') as f_in, \
-         open(output_path, 'w', encoding='utf-8') as f_out:
-
-        for line in tqdm(f_in, desc="Merging data"):
-            item = json.loads(line)
-            asin = item.get('asin')
-
+    with open(output_path, 'w', encoding='utf-8') as f_out:
+        for asin, review_keywords in tqdm(aggregated_keywords.items(), desc="Merging data"):
             meta = metadata.get(asin, {})
             if meta:
                 matched += 1
@@ -347,7 +349,6 @@ def merge_all(
                 unmatched += 1
 
             title = meta.get('title', '')
-            review_keywords = item.get('keywords', [])
             description_summary = description_summaries.get(asin, [])
             features = meta.get('features', [])
 
@@ -376,6 +377,7 @@ def merge_all(
             f_out.write(json.dumps(output_item, ensure_ascii=False) + '\n')
 
     print(f"\n=== Merge Complete ===")
+    print(f"  Total items (1 vector per item): {len(aggregated_keywords)}")
     print(f"  Matched with metadata: {matched}")
     print(f"  Unmatched: {unmatched}")
     print(f"  Output saved to: {output_path}")
@@ -399,6 +401,7 @@ def main():
         python merge_metadata.py                          # Ollama (default)
         python merge_metadata.py BACKEND=vllm             # vLLM with auto GPU
         python merge_metadata.py BACKEND=vllm GPU=0,1     # vLLM with specific GPUs
+        python merge_metadata.py BACKEND=vllm GPU_MEM=0.5 # vLLM with 50% GPU memory
         python merge_metadata.py USE_LLM=false            # Skip description summarization
         python merge_metadata.py BATCH_SIZE=32            # Batch size for vLLM
     """
@@ -408,7 +411,7 @@ def main():
     BACKEND = cli_args.get('BACKEND', 'ollama').lower()
     MODEL = cli_args.get('MODEL')
     GPU = cli_args.get('GPU')
-    GPU_MEM = cli_args.get('GPU_MEM') # GPU memory utilization (0.0-1.0)
+    GPU_MEM = cli_args.get('GPU_MEM')  # GPU memory utilization (0.0-1.0)
     USE_LLM = cli_args.get('USE_LLM', 'true').lower() != 'false'
 
     # Parse GPU IDs
@@ -417,10 +420,10 @@ def main():
         gpu_ids = [int(g.strip()) for g in GPU.split(',')]
 
     # Parse GPU memory utilization
-    gpu_memory_utilization = 0.8 # default
+    gpu_memory_utilization = 0.8  # default
     if GPU_MEM:
         gpu_memory_utilization = float(GPU_MEM)
-        
+
     # File paths
     base_dir = Path(__file__).parent.parent.parent  # backend/
 
@@ -443,7 +446,7 @@ def main():
     if gpu_ids:
         print(f"GPUs: {gpu_ids}")
     if BACKEND == 'vllm':
-        print(f"GPU Memory Utilization: {gpu_memory_utilization}")
+        print(f"GPU memory utilization: {gpu_memory_utilization}")
     print(f"Batch size: {BATCH_SIZE}")
     print()
 

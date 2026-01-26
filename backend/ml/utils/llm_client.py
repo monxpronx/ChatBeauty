@@ -169,6 +169,7 @@ class VLLMDirectBackend(BaseLLMBackend):
             tensor_parallel_size = gpu_count
 
         # Initialize vLLM with version-safe parameters
+        # Initialize vLLM with version-safe parameters
         print(f"[vLLM] Loading model: {self.model_name}")
         try:
             # Check vLLM version for API compatibility
