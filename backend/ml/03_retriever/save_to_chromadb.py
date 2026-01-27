@@ -74,18 +74,19 @@ def save_to_chromadb(
 
         documents.append(item['embedding_text'])
         ids.append(item['asin'])
-        metadatas.append({
-            'title': item.get('title', ''),
-            'review_keywords': ', '.join(str(k) for k in item.get('review_keywords', [])),
-            'description_summary': ', '.join(str(s) for s in item.get('description_summary', [])),
-            'features': ', '.join(str(f) for f in item.get('features', []))[:500],  # Truncate long features
-            # Additional metadata
-            'price': item.get('price'),
-            'average_rating': item.get('average_rating'),
-            'store': item.get('store', ''),
-            'categories': ', '.join(str(c) for c in item.get('categories', [])),
-            'main_category': item.get('main_category', ''),
-        })
+        # ChromaDB does not accept None — guard every field
+        meta = {
+            'title': item.get('title') or '',
+            'review_keywords': ', '.join(str(k) for k in (item.get('review_keywords') or [])),
+            'description_summary': ', '.join(str(s) for s in (item.get('description_summary') or [])),
+            'features': ', '.join(str(f) for f in (item.get('features') or []))[:500],
+            'price': float(item.get('price') or 0.0),
+            'average_rating': float(item.get('average_rating') or 0.0),
+            'store': item.get('store') or '',
+            'categories': ', '.join(str(c) for c in (item.get('categories') or [])),
+            'main_category': item.get('main_category') or '',
+        }
+        metadatas.append(meta)
 
     print(f"Prepared {len(documents)} documents for embedding")
 
