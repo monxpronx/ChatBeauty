@@ -328,18 +328,14 @@ def merge_all(
     print(f"\n=== Step 3: Aggregating review keywords per item ===")
     aggregated_keywords = aggregate_keywords_by_item(keywords_path)
 
-    # Step 4: Merge all data and create embedding text per item
+    # Step 4: Merge all data and create embedding text per item (one per unique ASIN)
     print(f"\n=== Step 4: Creating item embeddings ===")
     matched = 0
     unmatched = 0
 
-    with open(keywords_path, 'r', encoding='utf-8') as f_in, \
-         open(output_path, 'w', encoding='utf-8') as f_out:
-
-        for line in tqdm(f_in, desc="Merging data"):
-            item = json.loads(line)
-            asin = item.get('asin')
-
+    with open(output_path, 'w', encoding='utf-8') as f_out:
+        # Iterate over unique ASINs from aggregated keywords
+        for asin in tqdm(aggregated_keywords.keys(), desc="Merging data"):
             meta = metadata.get(asin, {})
             if meta:
                 matched += 1
@@ -347,7 +343,7 @@ def merge_all(
                 unmatched += 1
 
             title = meta.get('title', '')
-            review_keywords = item.get('keywords', [])
+            review_keywords = aggregated_keywords[asin]  # Use aggregated keywords
             description_summary = description_summaries.get(asin, [])
             features = meta.get('features', [])
 
