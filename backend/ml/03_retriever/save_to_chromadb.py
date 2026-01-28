@@ -3,18 +3,29 @@ Save item embeddings to ChromaDB using BGE-M3.
 
 This script:
 1. Loads preprocessed items from items_for_embedding.jsonl
-2. Generates embeddings using BAAI/bge-m3
+2. Generates embeddings using BAAI/bge-m3 (or fine-tuned model)
 3. Saves to ChromaDB in backend/data/chromadb/
 
 Usage:
     python save_to_chromadb.py
+    python save_to_chromadb.py MODEL_PATH=./models/bge-m3-finetuned-xxx  # Use fine-tuned model
 """
 
 import json
+import sys
 from pathlib import Path
 from tqdm import tqdm
 import chromadb
-from FlagEmbedding import BGEM3FlagModel
+
+
+def parse_args():
+    """Parse KEY=VALUE arguments from command line"""
+    args = {}
+    for arg in sys.argv[1:]:
+        if '=' in arg:
+            key, value = arg.split('=', 1)
+            args[key.upper()] = value
+    return args
 
 
 def load_items(items_path: str) -> list:
@@ -26,8 +37,8 @@ def load_items(items_path: str) -> list:
     return items
 
 
-def create_embeddings(model: BGEM3FlagModel, texts: list, batch_size: int = 32) -> list:
-    """Generate embeddings for texts in batches"""
+def create_embeddings_flagembedding(model, texts: list, batch_size: int = 32) -> list:
+    """Generate embeddings using FlagEmbedding BGEM3FlagModel"""
     all_embeddings = []
 
     for i in tqdm(range(0, len(texts), batch_size), desc="Generating embeddings"):
@@ -38,9 +49,48 @@ def create_embeddings(model: BGEM3FlagModel, texts: list, batch_size: int = 32) 
     return all_embeddings
 
 
+def create_embeddings_sentence_transformers(model, texts: list, batch_size: int = 32) -> list:
+    """Generate embeddings using SentenceTransformer"""
+    embeddings = model.encode(
+        texts,
+        batch_size=batch_size,
+        show_progress_bar=True,
+        convert_to_numpy=True
+    )
+    return embeddings.tolist()
+
+
+def load_model(model_path: str, use_gpu: bool = True):
+    """
+    Load embedding model - either FlagEmbedding or SentenceTransformer.
+
+    Returns: (model, model_type)
+    """
+    model_path = Path(model_path)
+
+    # Check if it's a fine-tuned sentence-transformers model
+    if model_path.exists() and (model_path / 'config.json').exists():
+        print(f"Loading fine-tuned SentenceTransformer model from {model_path}")
+        from sentence_transformers import SentenceTransformer
+        device = 'cuda' if use_gpu else 'cpu'
+        model = SentenceTransformer(str(model_path), device=device)
+        return model, 'sentence_transformers'
+    else:
+        # Use FlagEmbedding for base BGE-M3
+        print(f"Loading FlagEmbedding model: {model_path}")
+        from FlagEmbedding import BGEM3FlagModel
+        model = BGEM3FlagModel(
+            str(model_path),
+            use_fp16=use_gpu,
+            device='cuda' if use_gpu else 'cpu'
+        )
+        return model, 'flagembedding'
+
+
 def save_to_chromadb(
     items_path: str,
     chromadb_path: str,
+    model_path: str = 'BAAI/bge-m3',
     collection_name: str = "beauty_products",
     batch_size: int = 32,
     use_gpu: bool = True
@@ -52,14 +102,10 @@ def save_to_chromadb(
     items = load_items(items_path)
     print(f"Loaded {len(items)} items")
 
-    # Step 2: Initialize BGE-M3 model
-    print("\n=== Step 2: Initializing BGE-M3 model ===")
-    model = BGEM3FlagModel(
-        'BAAI/bge-m3',
-        use_fp16=use_gpu,
-        device='cuda' if use_gpu else 'cpu'
-    )
-    print("Model loaded")
+    # Step 2: Initialize model
+    print("\n=== Step 2: Initializing embedding model ===")
+    model, model_type = load_model(model_path, use_gpu)
+    print(f"Model loaded (type: {model_type})")
 
     # Step 3: Prepare data
     print("\n=== Step 3: Preparing data ===")
@@ -92,7 +138,10 @@ def save_to_chromadb(
 
     # Step 4: Generate embeddings
     print("\n=== Step 4: Generating embeddings ===")
-    embeddings = create_embeddings(model, documents, batch_size)
+    if model_type == 'sentence_transformers':
+        embeddings = create_embeddings_sentence_transformers(model, documents, batch_size)
+    else:
+        embeddings = create_embeddings_flagembedding(model, documents, batch_size)
     print(f"Generated {len(embeddings)} embeddings")
 
     # Step 5: Save to ChromaDB
@@ -135,11 +184,26 @@ def save_to_chromadb(
 
 
 def main():
+    cli_args = parse_args()
+
     # Paths
     base_dir = Path(__file__).parent.parent.parent  # backend/
 
     items_path = base_dir / 'data/processed/items_for_embedding.jsonl'
     chromadb_path = base_dir / 'data/chromadb'
+
+    # Model configuration
+    model_path = cli_args.get('MODEL_PATH', 'BAAI/bge-m3')
+    batch_size = int(cli_args.get('BATCH_SIZE', 32))
+    use_gpu = cli_args.get('USE_GPU', 'true').lower() == 'true'
+
+    print("=" * 60)
+    print("ChromaDB Embedding Generator")
+    print("=" * 60)
+    print(f"Model: {model_path}")
+    print(f"Batch size: {batch_size}")
+    print(f"Use GPU: {use_gpu}")
+    print()
 
     # Check if input file exists
     if not items_path.exists():
@@ -150,9 +214,10 @@ def main():
     save_to_chromadb(
         items_path=str(items_path),
         chromadb_path=str(chromadb_path),
+        model_path=model_path,
         collection_name="beauty_products",
-        batch_size=32,
-        use_gpu=True  # Set to False if no GPU available
+        batch_size=batch_size,
+        use_gpu=use_gpu
     )
 
 

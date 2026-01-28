@@ -1,147 +1,266 @@
 # ML Pipeline
 
-This directory contains scripts for the retrieval pipeline: keyword extraction, metadata merging, and embedding generation.
+This directory contains scripts for the retrieval pipeline: keyword extraction, metadata merging, embedding generation, and BGE-M3 fine-tuning.
 
 ## Pipeline Overview
 
 ```
-All_Beauty.jsonl → [Step 1: Extract Keywords] → keywords_output.jsonl
-                                                        ↓
-meta_All_Beauty.jsonl → [Step 2: Merge Metadata] → items_for_embedding.jsonl
-                                                        ↓
-                                    [Step 3: Save to ChromaDB] → ChromaDB
+Raw Data                          Processed Data                              Model Training & Inference
+────────                          ──────────────                              ──────────────────────────
+
+All_Beauty.jsonl ──[Split]──→ reviews_train.jsonl ──[Step 1]──→ keywords_train.jsonl ─┐
+    (701k reviews)             reviews_valid.jsonl              keywords_valid.jsonl  │
+                               reviews_test.jsonl               keywords_test.jsonl   │
+                                                                                       │
+                                                                                       ├──[Step 2]──→ items_for_embedding.jsonl
+meta_All_Beauty.jsonl ─────────────────────────────────────────────────────────────────┘               (112k items)
+    (112k items)                                                                                              │
+                                                                                                              ↓
+                                                                                    [Step 3: Embed] ──→ ChromaDB (base model)
+                                                                                                              │
+                                                                       ┌──────────────────────────────────────┘
+                                                                       │
+training_pairs.jsonl ←──[Step 4]── keywords_train.jsonl + items_for_embedding.jsonl
+    (518k pairs)                                    │
+                                                    ↓
+                                    [Step 5: Fine-tune BGE-M3] ──→ models/bge-m3-finetuned-xxx/
+                                                                              │
+                                                                              ↓
+                                                    [Step 6: Rebuild ChromaDB] ──→ ChromaDB (fine-tuned)
 ```
 
-## Backend Options
+## Key Concepts
 
-The pipeline supports two LLM backends:
+### Data Splitting (Time-based)
 
-| Backend | Description | GPU Required |
-|---------|-------------|--------------|
-| `ollama` | HTTP API to local Ollama server | No (Ollama handles) |
-| `vllm` | Direct vLLM with auto GPU detection | Yes |
+Reviews are split by `timestamp` to simulate real-world deployment:
+- **Train (80%)**: timestamp ≤ 1621867671638 (~Jun 2021) — used for item embeddings
+- **Valid (10%)**: timestamp ≤ 1643212573029 (~Jan 2022) — for hyperparameter tuning
+- **Test (10%)**: newest reviews — for final evaluation
+
+### parent_asin vs asin
+
+- `asin`: Variant-specific ID (e.g., red vs blue version)
+- `parent_asin`: Product-level ID that groups all variants
+
+The pipeline uses `parent_asin` to:
+1. Aggregate keywords from all variants' reviews
+2. Match reviews to metadata (metadata is keyed by `parent_asin`)
+3. Create one embedding per product (not per variant)
+
+## Data Files
+
+| File | Location | Records | Description |
+|------|----------|---------|-------------|
+| `All_Beauty.jsonl` | `data/raw/` | 701,528 | Raw user reviews |
+| `meta_All_Beauty.jsonl` | `data/raw/` | 112,590 | Product metadata |
+| `reviews_train.jsonl` | `data/processed/` | 561,222 | Train split reviews |
+| `reviews_valid.jsonl` | `data/processed/` | 70,152 | Validation split reviews |
+| `reviews_test.jsonl` | `data/processed/` | 70,154 | Test split reviews |
+| `keywords_train.jsonl` | `data/processed/` | 538,013 | Keywords from train reviews (with `parent_asin`) |
+| `keywords_valid.jsonl` | `data/processed/` | 68,034 | Keywords from valid reviews |
+| `keywords_test.jsonl` | `data/processed/` | 68,108 | Keywords from test reviews |
+| `description_summaries_cache.jsonl` | `data/processed/` | 17,443 | LLM-summarized descriptions |
+| `items_for_embedding.jsonl` | `data/processed/` | 112,589 | Final merged items for embedding |
+| `training_pairs.jsonl` | `data/processed/` | 518,393 | (query, positive) pairs for fine-tuning |
+| ChromaDB | `data/chromadb/` | - | Vector database with embeddings |
 
 ## Running the Pipeline
 
-### Option 1: Ollama (Default)
-
-Requires Ollama running locally with `llama3.1:8b` model.
+### Prerequisites
 
 ```bash
-# Start Ollama server first
-ollama serve
-
-# In another terminal, run the pipeline
 cd backend
 
-# Step 1: Extract keywords from reviews
+# For LLM processing (Ollama or vLLM)
+pip install requests tqdm vllm
+
+# For embeddings and fine-tuning
+pip install chromadb FlagEmbedding sentence-transformers torch
+```
+
+### Step 0: Split Data by Timestamp
+
+```bash
+# Already done - creates reviews_*.jsonl and keywords_*.jsonl files
+# Timestamp cutoffs: train_end=1621867671638, valid_end=1643212573029
+```
+
+### Step 1: Extract Keywords from Reviews
+
+Extract contextual keywords using LLaMA 3.1 (WHO/WHEN/WHY the product is useful).
+
+```bash
+# Ollama (default)
 python ml/03_retriever/extract_keywords_with_llama.py
 
-# Step 2: Merge metadata and summarize descriptions
-python ml/02_features/merge_metadata.py
-
-# Step 3: Generate embeddings and save to ChromaDB
-python ml/03_retriever/save_to_chromadb.py
-```
-
-### Option 2: vLLM (GPU)
-
-Automatically detects available GPUs and loads the model directly.
-
-```bash
-cd backend
-
-# Step 1: Extract keywords (batched for speed)
-python ml/03_retriever/extract_keywords_with_llama.py BACKEND=vllm
-
-# Step 2: Merge metadata (batched for speed)
-python ml/02_features/merge_metadata.py BACKEND=vllm
-
-# Step 3: Generate embeddings and save to ChromaDB
-python ml/03_retriever/save_to_chromadb.py
-```
-
-## Command Options
-
-### extract_keywords_with_llama.py
-
-| Option | Default (Ollama) | Default (vLLM) | Description |
-|--------|------------------|----------------|-------------|
-| `BACKEND` | `ollama` | - | Backend to use: `ollama` or `vllm` |
-| `MODEL` | `llama3.1:8b` | `meta-llama/Llama-3.1-8B-Instruct` | Model name |
-| `GPU` | - | all available | Specific GPU IDs (e.g., `GPU=0,1`) |
-| `BATCH_SIZE` | 1 | 32 | Batch size for processing |
-| `DELAY` | 0.5 | 0.0 | Delay between requests (seconds) |
-| `MAX_ITEMS` | all | all | Limit number of items to process |
-
-**Examples:**
-```bash
-# vLLM with specific GPUs
-python ml/03_retriever/extract_keywords_with_llama.py BACKEND=vllm GPU=0,1
-
-# vLLM with custom model and batch size
-python ml/03_retriever/extract_keywords_with_llama.py BACKEND=vllm MODEL=meta-llama/Llama-3.1-8B-Instruct BATCH_SIZE=64
+# vLLM (faster, requires GPU)
+python ml/03_retriever/extract_keywords_with_llama.py BACKEND=vllm BATCH_SIZE=64
 
 # Test with limited items
 python ml/03_retriever/extract_keywords_with_llama.py BACKEND=vllm MAX_ITEMS=100
 ```
 
-### merge_metadata.py
+**Note**: After extraction, add `parent_asin` by joining with reviews file (see data preparation scripts).
+
+### Step 2: Merge Metadata
+
+Combines keywords + metadata + description summaries into final item representations.
+
+```bash
+# With description summarization (uses cached summaries if available)
+python ml/02_features/merge_metadata.py BACKEND=vllm
+
+# Skip LLM (use cached summaries only)
+python ml/02_features/merge_metadata.py USE_LLM=false
+```
+
+**Output format** (items_for_embedding.jsonl):
+```
+[Title] Product Name [Review Keywords] kw1, kw2, ... [Description Summary] summary1, summary2 [Features] feat1, feat2
+```
+
+### Step 3: Save to ChromaDB (Base Model)
+
+Generate embeddings with BGE-M3 and store in ChromaDB.
+
+```bash
+# Base BGE-M3 model
+python ml/03_retriever/save_to_chromadb.py
+
+# With options
+python ml/03_retriever/save_to_chromadb.py BATCH_SIZE=64 USE_GPU=true
+```
+
+### Step 4: Create Training Pairs
+
+Generate (query, positive_document) pairs for fine-tuning.
+
+```bash
+python ml/03_retriever/create_training_pairs.py
+
+# Options
+python ml/03_retriever/create_training_pairs.py MAX_KEYWORDS=30 OUTPUT_FORMAT=triplet
+```
+
+**Output** (training_pairs.jsonl):
+```json
+{
+  "query": "hair, spray, texture, beachy waves, ...",
+  "positive": "[Title] Herbivore Sea Mist... [Review Keywords] ...",
+  "parent_asin": "B00YQ6X8EO"
+}
+```
+
+### Step 5: Fine-tune BGE-M3
+
+Fine-tune using sentence-transformers with MultipleNegativesRankingLoss.
+
+```bash
+# Basic training
+python ml/03_retriever/finetune_bge_m3.py
+
+# With options
+python ml/03_retriever/finetune_bge_m3.py EPOCHS=3 BATCH_SIZE=32 LR=2e-5
+
+# Lower batch size if GPU OOM
+python ml/03_retriever/finetune_bge_m3.py BATCH_SIZE=8
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `EPOCHS` | 1 | Number of training epochs |
+| `BATCH_SIZE` | 16 | Batch size (larger = more in-batch negatives) |
+| `LR` | 2e-5 | Learning rate |
+| `USE_FP16` | true | Mixed precision training |
+| `MAX_QUERY_LENGTH` | 256 | Max query tokens |
+| `MAX_DOC_LENGTH` | 512 | Max document tokens |
+| `EVAL_STEPS` | 1000 | Evaluate every N steps |
+
+### Step 6: Rebuild ChromaDB with Fine-tuned Model
+
+```bash
+python ml/03_retriever/save_to_chromadb.py MODEL_PATH=./models/bge-m3-finetuned-YYYYMMDD-HHMMSS
+```
+
+## Evaluation
+
+### Metrics
+
+- **Stage 1 (Retrieval)**: Recall@100 — Did the correct item appear in top 100 candidates?
+- **Stage 2 (Re-ranking)**: NDCG@5 — How well ranked are the final 5 recommendations?
+
+### Evaluation Protocol
+
+1. Take a review from test set as a simulated user query
+2. Extract keywords (or use raw review text)
+3. Encode query with BGE-M3
+4. Retrieve top-K items from ChromaDB
+5. Check if the actual purchased item (`parent_asin`) is in the results
+
+## Command Reference
+
+### extract_keywords_with_llama.py
 
 | Option | Default (Ollama) | Default (vLLM) | Description |
 |--------|------------------|----------------|-------------|
-| `BACKEND` | `ollama` | - | Backend to use: `ollama` or `vllm` |
+| `BACKEND` | `ollama` | - | `ollama` or `vllm` |
 | `MODEL` | `llama3.1:8b` | `meta-llama/Llama-3.1-8B-Instruct` | Model name |
-| `GPU` | - | all available | Specific GPU IDs (e.g., `GPU=0,1`) |
-| `BATCH_SIZE` | 1 | 32 | Batch size for processing |
-| `DELAY` | 0.3 | 0.0 | Delay between requests (seconds) |
-| `USE_LLM` | `true` | `true` | Set to `false` to skip description summarization |
+| `GPU` | - | all available | GPU IDs (e.g., `GPU=0,1`) |
+| `BATCH_SIZE` | 1 | 64 | Batch size |
+| `MAX_ITEMS` | all | all | Limit items to process |
 
-**Examples:**
-```bash
-# vLLM with specific GPUs
-python ml/02_features/merge_metadata.py BACKEND=vllm GPU=0,1
+### merge_metadata.py
 
 nohup python ml/02_features/merge_metadata.py BACKEND=vllm > merge_metadata.log 2>&1 &
 
 # Skip LLM summarization (just merge existing data)
 python ml/02_features/merge_metadata.py USE_LLM=false
 ```
+| Option | Default | Description |
+|--------|---------|-------------|
+| `BACKEND` | `ollama` | `ollama` or `vllm` |
+| `USE_LLM` | `true` | Set `false` to skip description summarization |
+| `BATCH_SIZE` | 1 (ollama) / 64 (vllm) | Batch size |
 
 ### save_to_chromadb.py
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| (none) | - | Uses BGE-M3 model, auto-detects GPU |
+| `MODEL_PATH` | `BAAI/bge-m3` | Path to model (base or fine-tuned) |
+| `BATCH_SIZE` | 32 | Embedding batch size |
+| `USE_GPU` | `true` | Use GPU for encoding |
 
-**Examples:**
-```bash
-# Run with default settings
-python ml/03_retriever/save_to_chromadb.py
+### create_training_pairs.py
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `OUTPUT_FORMAT` | `pair` | `pair` (query, positive) or `triplet` (+ negative) |
+| `MAX_KEYWORDS` | 20 | Max keywords in query |
+| `INCLUDE_REVIEW_TEXT` | `false` | Also use raw review text as query variant |
+
+### finetune_bge_m3.py
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `EPOCHS` | 1 | Training epochs |
+| `BATCH_SIZE` | 16 | Batch size |
+| `LR` | 2e-5 | Learning rate |
+| `USE_FP16` | `true` | Mixed precision |
+| `EVAL_STEPS` | 1000 | Evaluation frequency |
+
+## Directory Structure
+
 ```
-
-## Output Files
-
-| File | Location | Description |
-|------|----------|-------------|
-| `keywords_output.jsonl` | `data/processed/` | Extracted keywords from reviews |
-| `description_summaries_cache.jsonl` | `data/processed/` | Cached description summaries |
-| `items_for_embedding.jsonl` | `data/processed/` | Final merged data for embedding |
-| ChromaDB | `data/chromadb/` | Vector database with embeddings |
-
-## Dependencies
-
-### For Ollama backend:
-```bash
-pip install requests tqdm
-```
-
-### For vLLM backend:
-```bash
-pip install vllm torch tqdm
-```
-
-### For ChromaDB:
-```bash
-pip install chromadb FlagEmbedding
+backend/ml/
+├── 02_features/
+│   └── merge_metadata.py          # Merge keywords + metadata → items_for_embedding
+├── 03_retriever/
+│   ├── extract_keywords_with_llama.py  # Extract keywords from reviews
+│   ├── create_training_pairs.py        # Generate fine-tuning pairs
+│   ├── finetune_bge_m3.py              # Fine-tune BGE-M3
+│   └── save_to_chromadb.py             # Generate embeddings → ChromaDB
+├── utils/
+│   └── llm_client.py              # LLM backend abstraction (Ollama/vLLM)
+└── README.md
 ```
