@@ -102,6 +102,8 @@ python ml/03_retriever/extract_keywords_with_llama.py BACKEND=vllm MAX_ITEMS=100
 # vLLM with specific GPUs
 python ml/02_features/merge_metadata.py BACKEND=vllm GPU=0,1
 
+nohup python ml/02_features/merge_metadata.py BACKEND=vllm > merge_metadata.log 2>&1 &
+
 # Skip LLM summarization (just merge existing data)
 python ml/02_features/merge_metadata.py USE_LLM=false
 ```
