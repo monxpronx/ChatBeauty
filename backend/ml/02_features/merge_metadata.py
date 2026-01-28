@@ -145,13 +145,14 @@ def load_metadata(meta_path: str) -> Dict:
 
 def aggregate_keywords_by_item(keywords_path: str) -> Dict[str, List[str]]:
     """
-    Aggregate all review keywords per item (asin).
+    Aggregate all review keywords per item (parent_asin).
 
     Since multiple reviews exist per item, we need to merge all keywords
     into a single list per item for creating one embedding vector per item.
+    Uses parent_asin to group product variants (different colors, sizes, etc.)
 
     Returns:
-        Dict mapping asin -> list of unique keywords (deduplicated, ordered by frequency)
+        Dict mapping parent_asin -> list of unique keywords (deduplicated, ordered by frequency)
     """
     from collections import Counter
 
@@ -160,23 +161,24 @@ def aggregate_keywords_by_item(keywords_path: str) -> Dict[str, List[str]]:
     with open(keywords_path, 'r', encoding='utf-8') as f:
         for line in tqdm(f, desc="Aggregating keywords by item"):
             item = json.loads(line)
-            asin = item.get('asin')
+            # Use parent_asin if available, fall back to asin
+            parent_asin = item.get('parent_asin') or item.get('asin')
             keywords = item.get('keywords', [])
 
-            if asin not in item_keywords:
-                item_keywords[asin] = Counter()
+            if parent_asin not in item_keywords:
+                item_keywords[parent_asin] = Counter()
 
             # Count keyword occurrences across reviews
             for kw in keywords:
                 if kw is not None and kw != '':  # skip empty/None values
-                    item_keywords[asin][str(kw).strip()] += 1
+                    item_keywords[parent_asin][str(kw).strip()] += 1
 
     # Convert to sorted list (most frequent first, then alphabetically)
     aggregated = {}
-    for asin, kw_counter in item_keywords.items():
+    for parent_asin, kw_counter in item_keywords.items():
         # Sort by frequency (desc), then alphabetically for ties
         sorted_keywords = sorted(kw_counter.keys(), key=lambda k: (-kw_counter[k], k))
-        aggregated[asin] = sorted_keywords
+        aggregated[parent_asin] = sorted_keywords
 
     print(f"Aggregated keywords for {len(aggregated)} unique items")
     return aggregated
@@ -328,24 +330,26 @@ def merge_all(
     print(f"\n=== Step 3: Aggregating review keywords per item ===")
     aggregated_keywords = aggregate_keywords_by_item(keywords_path)
 
-    # Step 4: Merge all data and create embedding text per item (one per unique ASIN)
+    # Step 4: Merge all data and create embedding text per item
+    # Iterate over ALL metadata items (not just those with keywords)
+    # so items without train-split reviews still get embedded via title/features/description
     print(f"\n=== Step 4: Creating item embeddings ===")
-    matched = 0
-    unmatched = 0
+    with_keywords = 0
+    without_keywords = 0
 
     with open(output_path, 'w', encoding='utf-8') as f_out:
-        # Iterate over unique ASINs from aggregated keywords
-        for asin in tqdm(aggregated_keywords.keys(), desc="Merging data"):
-            meta = metadata.get(asin, {})
-            if meta:
-                matched += 1
-            else:
-                unmatched += 1
+        for asin in tqdm(metadata.keys(), desc="Merging data"):
+            meta = metadata[asin]
 
             title = meta.get('title', '')
-            review_keywords = aggregated_keywords[asin]  # Use aggregated keywords
+            review_keywords = aggregated_keywords.get(asin, [])
             description_summary = description_summaries.get(asin, [])
             features = meta.get('features', [])
+
+            if review_keywords:
+                with_keywords += 1
+            else:
+                without_keywords += 1
 
             embedding_text = create_embedding_text(
                 title=title,
@@ -353,6 +357,10 @@ def merge_all(
                 description_summary=description_summary,
                 features=features
             )
+
+            # Skip items with no usable text at all
+            if not embedding_text.strip():
+                continue
 
             output_item = {
                 'asin': asin,
@@ -372,8 +380,9 @@ def merge_all(
             f_out.write(json.dumps(output_item, ensure_ascii=False) + '\n')
 
     print(f"\n=== Merge Complete ===")
-    print(f"  Matched with metadata: {matched}")
-    print(f"  Unmatched: {unmatched}")
+    print(f"  With review keywords: {with_keywords}")
+    print(f"  Without review keywords (metadata only): {without_keywords}")
+    print(f"  Total: {with_keywords + without_keywords}")
     print(f"  Output saved to: {output_path}")
 
 
@@ -421,7 +430,7 @@ def main():
     # File paths
     base_dir = Path(__file__).parent.parent.parent  # backend/
 
-    keywords_path = base_dir / 'data/processed/keywords_output.jsonl'
+    keywords_path = base_dir / 'data/processed/keywords_train.jsonl'
     meta_path = base_dir / 'data/raw/meta_All_Beauty.jsonl'
     output_path = base_dir / 'data/processed/items_for_embedding.jsonl'
     summary_cache_path = base_dir / 'data/processed/description_summaries_cache.jsonl'
