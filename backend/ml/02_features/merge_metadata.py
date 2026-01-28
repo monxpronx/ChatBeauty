@@ -330,23 +330,25 @@ def merge_all(
     aggregated_keywords = aggregate_keywords_by_item(keywords_path)
 
     # Step 4: Merge all data and create embedding text per item
+    # Iterate over ALL metadata items (not just those with keywords)
+    # so items without train-split reviews still get embedded via title/features/description
     print(f"\n=== Step 4: Creating item embeddings ===")
-    matched = 0
-    unmatched = 0
+    with_keywords = 0
+    without_keywords = 0
 
     with open(output_path, 'w', encoding='utf-8') as f_out:
-        # Iterate over unique ASINs from aggregated keywords
-        for asin in tqdm(aggregated_keywords.keys(), desc="Merging data"):
-            meta = metadata.get(asin, {})
-            if meta:
-                matched += 1
-            else:
-                unmatched += 1
+        for asin in tqdm(metadata.keys(), desc="Merging data"):
+            meta = metadata[asin]
 
             title = meta.get('title', '')
-            review_keywords = aggregated_keywords[asin]  # Use aggregated keywords
+            review_keywords = aggregated_keywords.get(asin, [])
             description_summary = description_summaries.get(asin, [])
             features = meta.get('features', [])
+
+            if review_keywords:
+                with_keywords += 1
+            else:
+                without_keywords += 1
 
             embedding_text = create_embedding_text(
                 title=title,
@@ -354,6 +356,10 @@ def merge_all(
                 description_summary=description_summary,
                 features=features
             )
+
+            # Skip items with no usable text at all
+            if not embedding_text.strip():
+                continue
 
             output_item = {
                 'asin': asin,
@@ -373,9 +379,9 @@ def merge_all(
             f_out.write(json.dumps(output_item, ensure_ascii=False) + '\n')
 
     print(f"\n=== Merge Complete ===")
-    print(f"  Total items (1 vector per item): {len(aggregated_keywords)}")
-    print(f"  Matched with metadata: {matched}")
-    print(f"  Unmatched: {unmatched}")
+    print(f"  With review keywords: {with_keywords}")
+    print(f"  Without review keywords (metadata only): {without_keywords}")
+    print(f"  Total: {with_keywords + without_keywords}")
     print(f"  Output saved to: {output_path}")
 
 
@@ -423,7 +429,7 @@ def main():
     # File paths
     base_dir = Path(__file__).parent.parent.parent  # backend/
 
-    keywords_path = base_dir / 'data/processed/keywords_output.jsonl'
+    keywords_path = base_dir / 'data/processed/keywords_train.jsonl'
     meta_path = base_dir / 'data/raw/meta_All_Beauty.jsonl'
     output_path = base_dir / 'data/processed/items_for_embedding.jsonl'
     summary_cache_path = base_dir / 'data/processed/description_summaries_cache.jsonl'
