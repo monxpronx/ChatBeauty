@@ -5,10 +5,12 @@ CLAUDE.md
 backend/data/raw/
 backend/data/processed/
 backend/data/chromadb/
+backend/data/evaluation/
 
 # Model files
 backend/ml/model/
 backend/ml/*/model/
+backend/models/
 
 # Python
 __pycache__/
