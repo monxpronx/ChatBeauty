@@ -124,22 +124,30 @@ Example format: {"summary": ["feature 1", "benefit 2", "use case 3"]}"""
 def load_metadata(meta_path: str) -> Dict:
     """Load metadata and create lookup by parent_asin"""
     metadata = {}
+    skipped = 0
     with open(meta_path, 'r', encoding='utf-8') as f:
-        for line in tqdm(f, desc="Loading metadata"):
-            item = json.loads(line)
-            parent_asin = item.get('parent_asin')
-            if parent_asin:
-                metadata[parent_asin] = {
-                    'title': item.get('title', ''),
-                    'features': item.get('features', []),
-                    'description': item.get('description', []),
-                    # Additional metadata for ChromaDB
-                    'price': item.get('price'),
-                    'average_rating': item.get('average_rating'),
-                    'store': item.get('store', ''),
-                    'categories': item.get('categories', []),
-                    'main_category': item.get('main_category', ''),
-                }
+        for line_num, line in enumerate(tqdm(f, desc="Loading metadata"), 1):
+            try:
+                item = json.loads(line)
+                parent_asin = item.get('parent_asin')
+                if parent_asin:
+                    metadata[parent_asin] = {
+                        'title': sanitize_string(item.get('title', '')),
+                        'features': item.get('features', []),
+                        'description': item.get('description', []),
+                        # Additional metadata for ChromaDB
+                        'price': item.get('price'),
+                        'average_rating': item.get('average_rating'),
+                        'store': sanitize_string(item.get('store', '')),
+                        'categories': item.get('categories', []),
+                        'main_category': sanitize_string(item.get('main_category', '')),
+                    }
+            except json.JSONDecodeError as e:
+                skipped += 1
+                if skipped <= 5:
+                    print(f"\nWarning: Skipping malformed metadata line {line_num}: {e}")
+    if skipped > 0:
+        print(f"Skipped {skipped} malformed metadata lines")
     return metadata
 
 
@@ -158,20 +166,28 @@ def aggregate_keywords_by_item(keywords_path: str) -> Dict[str, List[str]]:
 
     item_keywords: Dict[str, Counter] = {}
 
+    skipped = 0
     with open(keywords_path, 'r', encoding='utf-8') as f:
-        for line in tqdm(f, desc="Aggregating keywords by item"):
-            item = json.loads(line)
-            # Use parent_asin if available, fall back to asin
-            parent_asin = item.get('parent_asin') or item.get('asin')
-            keywords = item.get('keywords', [])
+        for line_num, line in enumerate(tqdm(f, desc="Aggregating keywords by item"), 1):
+            try:
+                item = json.loads(line)
+                # Use parent_asin if available, fall back to asin
+                parent_asin = item.get('parent_asin') or item.get('asin')
+                keywords = item.get('keywords', [])
 
-            if parent_asin not in item_keywords:
-                item_keywords[parent_asin] = Counter()
+                if parent_asin not in item_keywords:
+                    item_keywords[parent_asin] = Counter()
 
-            # Count keyword occurrences across reviews
-            for kw in keywords:
-                if kw is not None and kw != '':  # skip empty/None values
-                    item_keywords[parent_asin][str(kw).strip()] += 1
+                # Count keyword occurrences across reviews
+                for kw in keywords:
+                    if kw is not None and kw != '':  # skip empty/None values
+                        item_keywords[parent_asin][sanitize_string(str(kw).strip())] += 1
+            except json.JSONDecodeError as e:
+                skipped += 1
+                if skipped <= 5:
+                    print(f"\nWarning: Skipping malformed keyword line {line_num}: {e}")
+    if skipped > 0:
+        print(f"Skipped {skipped} malformed keyword lines")
 
     # Convert to sorted list (most frequent first, then alphabetically)
     aggregated = {}
@@ -183,11 +199,21 @@ def aggregate_keywords_by_item(keywords_path: str) -> Dict[str, List[str]]:
     print(f"Aggregated keywords for {len(aggregated)} unique items")
     return aggregated
 
+def sanitize_string(text: str) -> str:
+    """Remove control characters that break JSON parsing"""
+    if not text:
+        return text
+    # Remove control characters (0x00-0x1F) except common whitespace
+    # Keep: \t (0x09), \n (0x0A), \r (0x0D)
+    import re
+    return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+
+
 def format_description(description: list) -> str:
     """Convert description list to single string"""
     if not description:
         return ''
-    return ' '.join(description)
+    return ' '.join(sanitize_string(str(d)) for d in description if d)
 
 
 def create_embedding_text(
@@ -203,21 +229,21 @@ def create_embedding_text(
     parts = []
 
     if title:
-        parts.append(f"[Title] {title}")
+        parts.append(f"[Title] {sanitize_string(title)}")
 
     if review_keywords:
         # 리스트 안에 숫자가 있어도 강제로 문자열로 변환 (str(k))
-        cleaned_keywords = [str(k) for k in review_keywords if k is not None]
+        cleaned_keywords = [sanitize_string(str(k)) for k in review_keywords if k is not None]
         parts.append(f"[Review Keywords] {', '.join(cleaned_keywords)}")
 
     if description_summary:
         # 문자열 변환 추가
-        cleaned_summary = [str(s) for s in description_summary if s is not None]
+        cleaned_summary = [sanitize_string(str(s)) for s in description_summary if s is not None]
         parts.append(f"[Description Summary] {', '.join(cleaned_summary)}")
 
     if features:
         # 문자열 변환 추가
-        cleaned_features = [str(f) for f in features if f is not None]
+        cleaned_features = [sanitize_string(str(f)) for f in features if f is not None]
         parts.append(f"[Features] {', '.join(cleaned_features)}")
 
     return ' '.join(parts)
