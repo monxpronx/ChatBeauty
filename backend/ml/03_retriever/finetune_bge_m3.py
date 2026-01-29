@@ -53,14 +53,23 @@ def load_training_pairs(
     all_examples = []
 
     print(f"Loading training pairs from {train_path}...")
+    skipped = 0
     with open(train_path, 'r', encoding='utf-8') as f:
-        for line in tqdm(f, desc="Loading"):
-            item = json.loads(line)
-            query = item.get('query', '')[:max_query_length]
-            positive = item.get('positive', '')[:max_doc_length]
+        for line_num, line in enumerate(tqdm(f, desc="Loading"), 1):
+            try:
+                item = json.loads(line)
+                query = item.get('query', '')[:max_query_length]
+                positive = item.get('positive', '')[:max_doc_length]
 
-            if query and positive:
-                all_examples.append(InputExample(texts=[query, positive]))
+                if query and positive:
+                    all_examples.append(InputExample(texts=[query, positive]))
+            except json.JSONDecodeError as e:
+                skipped += 1
+                if skipped <= 5:
+                    print(f"\nWarning: Skipping malformed line {line_num}: {e}")
+
+    if skipped > 0:
+        print(f"Skipped {skipped} malformed lines")
 
     print(f"Loaded {len(all_examples)} training pairs")
 
@@ -70,13 +79,19 @@ def load_training_pairs(
     # Split
     if val_path:
         val_examples = []
+        val_skipped = 0
         with open(val_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                item = json.loads(line)
-                query = item.get('query', '')[:max_query_length]
-                positive = item.get('positive', '')[:max_doc_length]
-                if query and positive:
-                    val_examples.append(InputExample(texts=[query, positive]))
+            for line_num, line in enumerate(f, 1):
+                try:
+                    item = json.loads(line)
+                    query = item.get('query', '')[:max_query_length]
+                    positive = item.get('positive', '')[:max_doc_length]
+                    if query and positive:
+                        val_examples.append(InputExample(texts=[query, positive]))
+                except json.JSONDecodeError:
+                    val_skipped += 1
+        if val_skipped > 0:
+            print(f"Skipped {val_skipped} malformed lines in validation file")
         train_examples = all_examples
     else:
         split_idx = int(len(all_examples) * (1 - val_ratio))
@@ -120,9 +135,6 @@ def create_evaluator(
         name=name,
         show_progress_bar=True,
         batch_size=32,
-        mrr_at_k=[10, 100],
-        recall_at_k=[10, 100],
-        ndcg_at_k=[10, 100],
     )
 
     return evaluator
