@@ -130,7 +130,6 @@ def save_to_chromadb(
             'average_rating': float(item.get('average_rating') or 0.0),
             'store': item.get('store') or '',
             'categories': ', '.join(str(c) for c in (item.get('categories') or [])),
-            'main_category': item.get('main_category') or '',
         }
         metadatas.append(meta)
 

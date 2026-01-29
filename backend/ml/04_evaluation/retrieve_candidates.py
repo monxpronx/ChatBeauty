@@ -77,12 +77,14 @@ def main():
     MAX_KEYWORDS = int(cli_args.get('MAX_KEYWORDS', 20))
     COLLECTION_NAME = cli_args.get('COLLECTION', 'beauty_products')
 
+    SPLIT = cli_args.get('SPLIT', 'test')
+
     base_dir = Path(__file__).parent.parent.parent  # backend/
-    keywords_path = base_dir / 'data/processed/keywords_test.jsonl'
+    keywords_path = base_dir / f'data/processed/keywords_{SPLIT}.jsonl'
     chromadb_path = base_dir / 'data/chromadb'
     output_dir = base_dir / 'data/evaluation'
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / 'retrieval_candidates_test.jsonl'
+    output_path = output_dir / f'retrieval_candidates_{SPLIT}.jsonl'
 
     print("=" * 60)
     print("Retrieve Top-K Candidates from ChromaDB")
@@ -131,7 +133,7 @@ def main():
     # Step 5: Query ChromaDB and write results
     print(f"\n=== Step 5: Retrieving top-{TOP_K} candidates ===")
     # ChromaDB supports batch queries
-    chroma_batch_size = 1000  # ChromaDB query batch limit
+    chroma_batch_size = 200  # 200 * 100 = 20k SQL vars (under 32k limit)
     written = 0
 
     with open(output_path, 'w', encoding='utf-8') as f_out:
@@ -163,7 +165,6 @@ def main():
                         'average_rating': meta.get('average_rating', 0.0),
                         'store': meta.get('store', ''),
                         'categories': meta.get('categories', ''),
-                        'main_category': meta.get('main_category', ''),
                     })
 
                 output = {
