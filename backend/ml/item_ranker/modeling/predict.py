@@ -27,11 +27,11 @@ def rerank(
     sample: RerankSample,
     reranker: Reranker,
 ) -> List[Tuple[Candidate, float]]:
-    """
-    reranker를 사용해 candidate들을 점수 기준으로 정렬한다.
+    scores = reranker.score(sample)
 
-    반환값:
-    - (Candidate, score) 튜플의 리스트
-    - score 내림차순 정렬 결과
-    """
-    raise NotImplementedError
+    ranked = sorted(
+        zip(sample.candidates, scores),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    return ranked

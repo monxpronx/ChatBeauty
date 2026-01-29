@@ -8,12 +8,8 @@ class FeatureBuilder:
     """
 
     def build(self, sample: RerankSample):
-        """
-        반환값:
-        - List[List[float]]
-        - candidate 하나당 하나의 feature 벡터
-
-        예:
-        - sample.candidates 길이 == feature 벡터 개수
-        """
-        raise NotImplementedError
+        
+        return [
+            [c.retrieval_score]
+            for c in sample.candidates
+        ]
