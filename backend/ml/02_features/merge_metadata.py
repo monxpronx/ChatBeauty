@@ -140,7 +140,6 @@ def load_metadata(meta_path: str) -> Dict:
                         'average_rating': item.get('average_rating'),
                         'store': sanitize_string(item.get('store', '')),
                         'categories': item.get('categories', []),
-                        'main_category': sanitize_string(item.get('main_category', '')),
                     }
             except json.JSONDecodeError as e:
                 skipped += 1
@@ -400,7 +399,6 @@ def merge_all(
                 'average_rating': meta.get('average_rating'),
                 'store': meta.get('store', ''),
                 'categories': meta.get('categories', []),
-                'main_category': meta.get('main_category', ''),
             }
 
             f_out.write(json.dumps(output_item, ensure_ascii=False) + '\n')
