@@ -160,6 +160,8 @@ Fine-tune using sentence-transformers with MultipleNegativesRankingLoss.
 # Basic training
 python ml/03_retriever/finetune_bge_m3.py
 
+nohup python ml/03_retriever/finetune_bge_m3.py > finetune_bge_m3.log 2>&1 &
+
 # With options
 python ml/03_retriever/finetune_bge_m3.py EPOCHS=3 BATCH_SIZE=32 LR=2e-5
 
