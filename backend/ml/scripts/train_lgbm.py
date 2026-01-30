@@ -1,24 +1,17 @@
-from item_ranker.dataset import load_jsonl, parse_samples_from_rows
+import os
 from item_ranker.modeling.train import train_reranker
 
-
 def main():
-    rows = load_jsonl("data/processed/retrieval_candidates_train.jsonl")
-    samples = parse_samples_from_rows(rows)
-
-    print(f"#samples = {len(samples)}")
-
-    num_pos = sum(sum(s.labels) for s in samples)
-    print(f"#positive labels = {num_pos}")
-
-    avg_group = sum(len(s.candidates) for s in samples) / len(samples)
-    print(f"avg group size = {avg_group:.2f}")
+    os.makedirs("model", exist_ok=True)
+    
+    data_path = "data/processed/retrieval_candidates_train.jsonl"
+    model_path = "model/rerankinglgbm_reranker.pkl"
 
     train_reranker(
-        samples=samples,
-        model_path="model/rerankinglgbm_reranker.pkl",
+        data_path=data_path,
+        model_path=model_path,
+        limit=None
     )
-
 
 if __name__ == "__main__":
     main()
