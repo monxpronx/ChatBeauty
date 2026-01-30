@@ -23,10 +23,15 @@ meta_All_Beauty.jsonl ───────────────────�
 training_pairs.jsonl ←──[Step 4]── keywords_train.jsonl + items_for_embedding.jsonl
     (518k pairs)                                    │
                                                     ↓
-                                    [Step 5: Fine-tune BGE-M3] ──→ models/bge-m3-finetuned-xxx/
+                                    [Step 5: Fine-tune BGE-M3] ──→ models/bge-m3-finetuned-20260128-174129/
                                                                               │
                                                                               ↓
                                                     [Step 6: Rebuild ChromaDB] ──→ ChromaDB (fine-tuned)
+                                                                                          │
+                                                                                          ↓
+                                                    [Step 7: Retrieve Candidates] ──→ retrieval_candidates_{split}.jsonl
+                                                       (SPLIT=train → re-ranker training data)
+                                                       (SPLIT=test  → final evaluation)
 ```
 
 ## Key Concepts
@@ -251,6 +256,32 @@ python ml/02_features/merge_metadata.py USE_LLM=false
 | `USE_FP16` | `true` | Mixed precision |
 | `EVAL_STEPS` | 1000 | Evaluation frequency |
 
+### retrieve_candidates.py
+
+Retrieve top-K candidates from ChromaDB for a given data split using the fine-tuned BGE-M3 model.
+
+```bash
+# Retrieve candidates for test split (default)
+python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129
+
+# Retrieve candidates for train split (for re-ranker training data)
+python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129 SPLIT=train
+
+# With options
+python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129 SPLIT=test TOP_K=100 BATCH_SIZE=256
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `MODEL_PATH` | (required) | Path to fine-tuned BGE-M3 model |
+| `SPLIT` | `test` | Data split: `train`, `valid`, or `test` |
+| `TOP_K` | 100 | Number of candidates to retrieve per query |
+| `BATCH_SIZE` | 256 | Query encoding batch size |
+| `MAX_KEYWORDS` | 20 | Max keywords per query |
+| `COLLECTION` | `beauty_products` | ChromaDB collection name |
+
+**Output**: `data/evaluation/retrieval_candidates_{SPLIT}.jsonl`
+
 ## Directory Structure
 
 ```
@@ -262,6 +293,11 @@ backend/ml/
 │   ├── create_training_pairs.py        # Generate fine-tuning pairs
 │   ├── finetune_bge_m3.py              # Fine-tune BGE-M3
 │   └── save_to_chromadb.py             # Generate embeddings → ChromaDB
+├── 04_evaluation/
+│   └── retrieve_candidates.py         # Retrieve top-K candidates from ChromaDB
+├── 04_item_ranker/
+│   ├── dataset.py                     # Data classes for re-ranking
+│   └── features.py                    # Feature builder for re-ranking
 ├── utils/
 │   └── llm_client.py              # LLM backend abstraction (Ollama/vLLM)
 └── README.md
