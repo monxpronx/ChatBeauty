@@ -5,7 +5,7 @@ def main():
     os.makedirs("model", exist_ok=True)
     
     data_path = "data/processed/retrieval_candidates_train.jsonl"
-    model_path = "model/rerankinglgbm_reranker.pkl"
+    model_path = "model/reranking/rerankinglgbm_reranker.pkl"
 
     train_reranker(
         data_path=data_path,

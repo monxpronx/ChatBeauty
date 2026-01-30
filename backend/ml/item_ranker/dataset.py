@@ -24,7 +24,7 @@ def iter_samples(path: str, limit: Optional[int] = None) -> Generator[RerankSamp
             
             row = json.loads(line)
             target_id = row["parent_asin"]
-            kw_list = [k.lower() for k in row.get("keywords", [])]
+            kw_list = [str(k).lower() for k in row.get("keywords", [])]
 
             candidates = []
             labels = []
