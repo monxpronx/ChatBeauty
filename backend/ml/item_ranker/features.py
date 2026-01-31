@@ -1,5 +1,5 @@
-import pandas as pd
 import os
+import pandas as pd
 from item_ranker.dataset import RerankSample
 
 
@@ -7,7 +7,7 @@ class FeatureBuilder:
     def __init__(
         self,
         use_only_retrieval: bool = False,
-        disable_features: list[str] | None = None
+        disable_features: list[str] | None = None,
     ):
         self.use_only_retrieval = use_only_retrieval
         self.disable_features = set(disable_features or [])
@@ -25,11 +25,16 @@ class FeatureBuilder:
             self.item_stats = {}
 
     def build(self, sample: RerankSample):
+        """
+        sample: RerankSample
+        return: List[List[float]] (n_candidates, n_features)
+        """
+
         if self.use_only_retrieval:
             return [[c.retrieval_score] for c in sample.candidates]
 
-        query_words = set(sample.query_keywords)
         features = []
+        query_words = set(sample.query_keywords)
 
         for idx, c in enumerate(sample.candidates):
             asin = c.metadata.get("item_asin")
@@ -38,8 +43,16 @@ class FeatureBuilder:
             title_words = set(title.split())
 
             overlap_count = len(query_words & title_words)
-            jaccard = overlap_count / len(query_words | title_words) if (query_words | title_words) else 0.0
-            coverage = overlap_count / len(query_words) if query_words else 0.0
+            jaccard = (
+                overlap_count / len(query_words | title_words)
+                if (query_words | title_words)
+                else 0.0
+            )
+            coverage = (
+                overlap_count / len(query_words)
+                if query_words
+                else 0.0
+            )
 
             rating = float(c.metadata.get("average_rating", 0.0) or 0.0)
             price = float(c.metadata.get("price", 0.0) or 0.0)
@@ -55,13 +68,16 @@ class FeatureBuilder:
             feat_map = {
                 "retrieval_score": c.retrieval_score,
                 "original_idx": idx,
+
                 "rating": rating,
                 "price": price,
+                "title_len": title_len,
+                "has_cheap": has_cheap,
+
                 "overlap_count": overlap_count,
                 "jaccard": jaccard,
                 "coverage": coverage,
-                "title_len": title_len,
-                "has_cheap": has_cheap,
+
                 "vp_ratio": vp_ratio,
                 "recent_review_cnt": recent_cnt,
                 "rating_std": rating_std,
