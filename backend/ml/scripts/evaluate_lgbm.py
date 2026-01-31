@@ -1,4 +1,5 @@
 import numpy as np
+import mlflow
 from tqdm import tqdm
 from sklearn.metrics import ndcg_score
 
@@ -30,12 +31,18 @@ def evaluate(data_path: str, model_path: str, k: int = 10):
     
     mean_ndcg = np.mean(ndcg_list)
     mean_baseline = np.mean(baseline_list)
+    improvement = (mean_ndcg - mean_baseline) / mean_baseline * 100
+    
+    if mlflow.active_run():
+        mlflow.log_metric(f"ndcg_at_{k}", mean_ndcg)
+        mlflow.log_metric("baseline_ndcg", mean_baseline)
+        mlflow.log_metric("improvement_pct", improvement)
     
     print("\n" + "="*40)
     print(f"Results for {data_path}")
     print(f"Baseline NDCG@{k}: {mean_baseline:.4f}")
-    print(f"Model    NDCG@{k}: {mean_ndcg:.4f}")
-    print(f"Improvement    : {((mean_ndcg - mean_baseline) / mean_baseline * 100):+.2f}%")
+    print(f"Model     NDCG@{k}: {mean_ndcg:.4f}")
+    print(f"Improvement    : {improvement:+.2f}%")
     print("="*40 + "\n")
     
     return mean_ndcg
@@ -44,4 +51,6 @@ if __name__ == "__main__":
     MODEL_PATH = "model/reranking/rerankinglgbm_reranker.pkl"
     VALID_PATH = "data/processed/retrieval_candidates_valid.jsonl"
     
-    evaluate(VALID_PATH, MODEL_PATH, k=10)
+    mlflow.set_experiment("Reranker_Feature_Expansion")
+    with mlflow.start_run(run_name="Evaluation_Only", nested=True):
+        evaluate(VALID_PATH, MODEL_PATH, k=10)
