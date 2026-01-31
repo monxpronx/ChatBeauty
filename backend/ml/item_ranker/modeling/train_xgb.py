@@ -2,8 +2,8 @@ import xgboost as xgb
 import numpy as np
 from typing import Optional
 
-from item_ranker.dataset import iter_samples
-from item_ranker.features import FeatureBuilder
+from backend.ml.item_ranker.dataset import iter_samples
+from backend.ml.item_ranker.features import FeatureBuilder
 
 
 def train_reranker_xgb(

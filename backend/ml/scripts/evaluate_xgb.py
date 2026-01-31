@@ -2,8 +2,8 @@ import numpy as np
 from tqdm import tqdm
 from sklearn.metrics import ndcg_score
 
-from item_ranker.dataset import iter_samples
-from item_ranker.modeling.predict_xgb import XGBReranker
+from backend.ml.item_ranker.dataset import iter_samples
+from backend.ml.item_ranker.modeling.predict_xgb import XGBReranker
 
 
 def evaluate(data_path: str, model_path: str, k: int = 10):
