@@ -1,7 +1,5 @@
-# backend/ml/item_ranker/scripts/train_xgb.py
-
 import os
-from item_ranker.modeling import train_reranker
+from backend.ml.item_ranker.modeling.train_xgb import train_reranker_xgb
 
 def main():
     data_path = "backend/ml/data/processed/retrieval_candidates_train.jsonl"
@@ -9,7 +7,7 @@ def main():
 
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
-    train_reranker(
+    train_reranker_xgb(
         data_path=data_path,
         model_path=model_path,
         limit=None
