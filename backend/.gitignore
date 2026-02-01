@@ -16,6 +16,9 @@ ml/data/raw/*
 ml/data/processed/*
 !ml/data/processed/.gitkeep
 
+# Ignore large data file
+ml/data/meta_All_Beauty.jsonl
+
 # Distribution / packaging
 .Python
 build/
