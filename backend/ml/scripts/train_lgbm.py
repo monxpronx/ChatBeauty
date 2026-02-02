@@ -1,47 +1,74 @@
 import os
 import mlflow
 import mlflow.lightgbm
+
+from item_ranker.features import FeatureBuilder
 from item_ranker.modeling.train import train_reranker
 
 
-def main():
-    os.makedirs("model/reranking", exist_ok=True)
-
-    mlflow.set_experiment("Reranker_Feature_Expansion")
-
-    with mlflow.start_run(run_name="13_features_item_stats") as run:
+def run_experiment(
+    run_name: str,
+    feature_builder: FeatureBuilder,
+    num_features: int,
+):
+    with mlflow.start_run(run_name=run_name):
         data_path = "data/processed/retrieval_candidates_train.jsonl"
-        model_path = "model/reranking/rerankinglgbm_reranker.pkl"
+        model_path = f"model/reranking/{run_name}.pkl"
 
-        mlflow.log_param("data_path", data_path)
-        mlflow.log_param("num_features", 13)
-        mlflow.log_param("n_estimators", 200)
-        mlflow.log_param("learning_rate", 0.05)
-        mlflow.log_param("max_depth", 5)
+        mlflow.log_param("num_features", num_features)
 
         model, metrics = train_reranker(
             data_path=data_path,
             model_path=model_path,
-            limit=None
+            feature_builder=feature_builder
         )
 
         for k, v in metrics.items():
             mlflow.log_metric(k, v)
-        
-        feature_names = [
-            "retrieval_score", "original_idx", "rating", "price",
-            "overlap_count", "jaccard", "coverage", "title_len", "has_cheap",
-            "vp_ratio", "recent_review_cnt", "rating_std", "log_median_price"
-        ]
-        
-        mlflow.lightgbm.log_model(
-            model,
-            artifact_path="model",
-            feature_names=feature_names
-        )
 
-        print(f"\n[MLflow] Run ID: {run.info.run_id}")
-        print("[MLflow] Model logged & ready for Registry")
+        mlflow.lightgbm.log_model(model, artifact_path="model")
+
+
+def main():
+    os.makedirs("model/reranking", exist_ok=True)
+    mlflow.set_experiment("Reranker_Feature_Expansion")
+
+    run_experiment(
+        run_name="baseline_retrieval_only",
+        feature_builder=FeatureBuilder(use_only_retrieval=True),
+        num_features=1,
+    )
+
+    run_experiment(
+        run_name="reranker_full_13_features",
+        feature_builder=FeatureBuilder(),
+        num_features=13,
+    )
+
+    run_experiment(
+        run_name="reranker_no_item_stats",
+        feature_builder=FeatureBuilder(
+            disable_features=[
+                "vp_ratio",
+                "recent_review_cnt",
+                "rating_std",
+                "log_median_price",
+            ]
+        ),
+        num_features=9,
+    )
+
+    run_experiment(
+        run_name="reranker_no_text_match",
+        feature_builder=FeatureBuilder(
+            disable_features=[
+                "overlap_count",
+                "jaccard",
+                "coverage",
+            ]
+        ),
+        num_features=10,
+    )
 
 
 if __name__ == "__main__":
