@@ -15,16 +15,8 @@ ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/*
 !ml/data/processed/.gitkeep
-<<<<<<< HEAD
-ml/data/chromadb/*
-!ml/data/chromadb/.gitkeep
-ml/data/evaluation/*
-!ml/data/evaluation/.gitkeep
-
-=======
 ml/data/cleaned/*
 !ml/data/cleaned/.gitkeep
->>>>>>> chore: unify gitignore and ignore ml data
 ml/features/*
 ml/mlruns/*
 ml/model/reranking/*
