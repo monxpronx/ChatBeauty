@@ -243,8 +243,9 @@ python ml/02_features/merge_metadata.py USE_LLM=false
 | Option | Default | Description |
 |--------|---------|-------------|
 | `OUTPUT_FORMAT` | `pair` | `pair` (query, positive) or `triplet` (+ negative) |
+| `QUERY_TYPE` | `keywords` | `keywords`, `review_text`, or `both` |
 | `MAX_KEYWORDS` | 20 | Max keywords in query |
-| `INCLUDE_REVIEW_TEXT` | `false` | Also use raw review text as query variant |
+| `INCLUDE_REVIEW_TEXT` | `false` | Also use raw review text as query variant (overridden by QUERY_TYPE) |
 
 ### finetune_bge_m3.py
 
@@ -275,6 +276,7 @@ python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetu
 |--------|---------|-------------|
 | `MODEL_PATH` | (required) | Path to fine-tuned BGE-M3 model |
 | `SPLIT` | `test` | Data split: `train`, `valid`, or `test` |
+| `QUERY_TYPE` | `keywords` | `keywords` or `review_text` |
 | `TOP_K` | 100 | Number of candidates to retrieve per query |
 | `BATCH_SIZE` | 256 | Query encoding batch size |
 | `MAX_KEYWORDS` | 20 | Max keywords per query |
