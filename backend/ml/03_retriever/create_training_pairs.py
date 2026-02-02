@@ -57,7 +57,8 @@ def create_training_pairs(
     output_path: str,
     output_format: str = "pair",
     max_keywords: int = 20,
-    include_review_text: bool = False
+    include_review_text: bool = False,
+    query_type: str = "keywords"
 ):
     """
     Create training pairs from keywords and items.
@@ -69,6 +70,7 @@ def create_training_pairs(
         output_format: "pair" (query, positive) or "triplet" (query, positive, negative)
         max_keywords: Maximum keywords to use in query
         include_review_text: If True, also include original review text as query variant
+        query_type: "keywords", "review_text", or "both"
     """
 
     # Step 1: Load items
@@ -96,11 +98,6 @@ def create_training_pairs(
             keywords = review.get('keywords', [])
             review_text = review.get('review_text', '')
 
-            # Skip if no keywords
-            if not keywords:
-                skipped_no_keywords += 1
-                continue
-
             # Skip if item not found
             if parent_asin not in items:
                 skipped_no_item += 1
@@ -113,8 +110,17 @@ def create_training_pairs(
                 skipped_no_item += 1
                 continue
 
-            # Create query from keywords
-            query_text = create_query_text(keywords, max_keywords)
+            # Create query based on query_type
+            if query_type == "review_text":
+                if not review_text or len(review_text) < 20:
+                    skipped_no_keywords += 1
+                    continue
+                query_text = review_text
+            else:
+                if not keywords:
+                    skipped_no_keywords += 1
+                    continue
+                query_text = create_query_text(keywords, max_keywords)
 
             if output_format == "pair":
                 # Simple pair format for contrastive learning
@@ -181,6 +187,12 @@ def main():
     OUTPUT_FORMAT = cli_args.get('OUTPUT_FORMAT', 'pair').lower()
     MAX_KEYWORDS = int(cli_args.get('MAX_KEYWORDS', 20))
     INCLUDE_REVIEW_TEXT = cli_args.get('INCLUDE_REVIEW_TEXT', 'false').lower() == 'true'
+    # QUERY_TYPE: "keywords" (default), "review_text", "both"
+    QUERY_TYPE = cli_args.get('QUERY_TYPE', 'keywords').lower()
+    if QUERY_TYPE == 'review_text':
+        INCLUDE_REVIEW_TEXT = False  # handled by QUERY_TYPE directly
+    elif QUERY_TYPE == 'both':
+        INCLUDE_REVIEW_TEXT = True
 
     # File paths
     base_dir = Path(__file__).parent.parent.parent  # backend/
@@ -193,6 +205,7 @@ def main():
     print("BGE-M3 Training Pair Generator")
     print("=" * 60)
     print(f"Output format: {OUTPUT_FORMAT}")
+    print(f"Query type: {QUERY_TYPE}")
     print(f"Max keywords: {MAX_KEYWORDS}")
     print(f"Include review text: {INCLUDE_REVIEW_TEXT}")
     print()
@@ -212,7 +225,8 @@ def main():
         output_path=str(output_path),
         output_format=OUTPUT_FORMAT,
         max_keywords=MAX_KEYWORDS,
-        include_review_text=INCLUDE_REVIEW_TEXT
+        include_review_text=INCLUDE_REVIEW_TEXT,
+        query_type=QUERY_TYPE
     )
 
 

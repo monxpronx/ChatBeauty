@@ -1,29 +1,3 @@
-*.pdf
-CLAUDE.md
-
-# Data files
-backend/data/raw/
-backend/data/processed/
-backend/data/chromadb/
-backend/data/evaluation/
-
-# Model files
-backend/ml/model/
-backend/ml/*/model/
-backend/models/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-*.egg-info/
-dist/
-build/
-
 # Node/Frontend
 node_modules/
 dist/
@@ -39,4 +13,4 @@ dist/
 *.swo
 .DS_Store
 
-*.jsonl 
+CLAUDE.md
