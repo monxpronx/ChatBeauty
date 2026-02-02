@@ -15,7 +15,11 @@ ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/*
 !ml/data/processed/.gitkeep
-
+ml/features/*
+ml/mlruns/*
+ml/model/reranking/*
+ml/artifacts/*
+*.db
 # Distribution / packaging
 .Python
 build/
