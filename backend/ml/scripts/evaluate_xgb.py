@@ -1,7 +1,7 @@
+import mlflow
 import numpy as np
 from tqdm import tqdm
 from sklearn.metrics import ndcg_score
-
 from backend.ml.item_ranker.dataset import iter_samples
 from backend.ml.item_ranker.modeling.predict_xgb import XGBReranker
 
@@ -30,6 +30,14 @@ def evaluate(data_path: str, model_path: str, k: int = 10):
 
     mean_ndcg = float(np.mean(ndcg_list))
     mean_baseline = float(np.mean(baseline_list))
+
+    # MLflow 기록
+    mlflow.log_metric(f"ndcg@{k}", mean_ndcg)
+    mlflow.log_metric(f"baseline_ndcg@{k}", mean_baseline)
+    mlflow.log_metric(
+        "ndcg_improvement_pct",
+        (mean_ndcg - mean_baseline) / mean_baseline * 100
+    )
 
     print("=" * 40)
     print(f"NDCG@{k} (baseline): {mean_baseline:.4f}")
