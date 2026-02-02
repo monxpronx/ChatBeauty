@@ -1,4 +1,10 @@
 import json
+import pandas as pd
+
+ITEM_FEAT_PATH = "backend/ml/data/cleaned/item_v1/item_v1.csv"
+ITEM_FEAT_DF = pd.read_csv(ITEM_FEAT_PATH)
+ITEM_FEAT_MAP = ITEM_FEAT_DF.set_index("parent_asin").to_dict(orient="index")
+
 from dataclasses import dataclass
 from typing import List, Optional, Generator
 
