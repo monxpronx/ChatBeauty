@@ -183,3 +183,22 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+# Data files
+data/raw/
+data/processed/
+data/chromadb/
+data/evaluation/
+
+# Model files
+ml/model/
+ml/*/model/
+models/
+
+# Misc
+*.pdf
+*.jsonl
+*.swp
+*.swo
+.DS_Store
+CLAUDE.md

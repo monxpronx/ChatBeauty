@@ -36,22 +36,35 @@ def create_query_text(keywords: List, max_keywords: int = 20) -> str:
     return ", ".join(str(kw) for kw in selected if kw is not None)
 
 
-def load_test_queries(keywords_path: str, max_keywords: int = 20) -> List[dict]:
-    """Load test queries from keywords_test.jsonl, skipping empty keywords."""
+def load_test_queries(keywords_path: str, max_keywords: int = 20, query_type: str = "keywords") -> List[dict]:
+    """Load queries from keywords_{split}.jsonl.
+
+    Args:
+        query_type: "keywords" (default) or "review_text"
+    """
     queries = []
     skipped = 0
     with open(keywords_path, 'r', encoding='utf-8') as f:
-        for line in tqdm(f, desc="Loading test queries"):
+        for line in tqdm(f, desc="Loading queries"):
             try:
                 item = json.loads(line)
                 keywords = item.get('keywords', [])
-                if not keywords:
-                    skipped += 1
-                    continue
-                query_text = create_query_text(keywords, max_keywords)
-                if not query_text:
-                    skipped += 1
-                    continue
+
+                if query_type == "review_text":
+                    review_text = item.get('review_text', '')
+                    if not review_text or len(review_text) < 20:
+                        skipped += 1
+                        continue
+                    query_text = review_text
+                else:
+                    if not keywords:
+                        skipped += 1
+                        continue
+                    query_text = create_query_text(keywords, max_keywords)
+                    if not query_text:
+                        skipped += 1
+                        continue
+
                 queries.append({
                     'parent_asin': item.get('parent_asin') or item.get('asin'),
                     'keywords': keywords,
@@ -76,6 +89,7 @@ def main():
     BATCH_SIZE = int(cli_args.get('BATCH_SIZE', 256))
     MAX_KEYWORDS = int(cli_args.get('MAX_KEYWORDS', 20))
     COLLECTION_NAME = cli_args.get('COLLECTION', 'beauty_products')
+    QUERY_TYPE = cli_args.get('QUERY_TYPE', 'keywords').lower()
 
     SPLIT = cli_args.get('SPLIT', 'test')
 
@@ -92,6 +106,7 @@ def main():
     print(f"Model: {MODEL_PATH}")
     print(f"Top-K: {TOP_K}")
     print(f"Batch size: {BATCH_SIZE}")
+    print(f"Query type: {QUERY_TYPE}")
     print(f"Collection: {COLLECTION_NAME}")
     print(f"Output: {output_path}")
     print()
@@ -117,7 +132,7 @@ def main():
 
     # Step 3: Load test queries
     print("\n=== Step 3: Loading test queries ===")
-    queries = load_test_queries(str(keywords_path), MAX_KEYWORDS)
+    queries = load_test_queries(str(keywords_path), MAX_KEYWORDS, QUERY_TYPE)
 
     # Step 4: Encode all queries
     print("\n=== Step 4: Encoding queries ===")
