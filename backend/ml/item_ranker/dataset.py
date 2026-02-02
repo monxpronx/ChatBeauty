@@ -1,5 +1,6 @@
 import pandas as pd
-
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parents[1]  # backend/ml
 ITEM_FEAT_PATH = BASE_DIR / "data/cleaned/item_v1/item_v1.csv"
 ITEM_FEAT_DF = pd.read_csv(ITEM_FEAT_PATH)
 ITEM_FEAT_MAP = ITEM_FEAT_DF.set_index("parent_asin").to_dict(orient="index")
@@ -28,8 +29,11 @@ def iter_samples(data_path: str, limit: Optional[int] = None) -> Generator[Reran
         for i, line in enumerate(f):
             if limit is not None and i >= limit:
                 break
-
-            row = json.loads(line)
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                print(f"[WARN] skip broken line at {i}")
+                continue
 
             target_id = row.get("parent_asin")
             raw_keywords = row.get("keywords") or []
@@ -38,12 +42,12 @@ def iter_samples(data_path: str, limit: Optional[int] = None) -> Generator[Reran
             candidates = []
             labels = []
 
-            for c in row["candidates"]:
+            for c in row.get("candidates", []):
                 item_id = c["item_asin"]
                 item_feat = ITEM_FEAT_MAP.get(item_id, {})
 
                 metadata = {
-                    **c,
+                    **{k: v for k, v in c.items() if isinstance(v, (int, float))},
                     **item_feat
                 }
 
@@ -51,7 +55,7 @@ def iter_samples(data_path: str, limit: Optional[int] = None) -> Generator[Reran
                     Candidate(
                         item_id=item_id,
                         retrieval_score=float(c.get("score", 0.0)),
-                        metadata=c
+                        metadata=metadata
                     )
                 )
 
