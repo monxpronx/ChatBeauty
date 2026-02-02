@@ -32,12 +32,13 @@ def evaluate(data_path: str, model_path: str, k: int = 10):
     mean_baseline = float(np.mean(baseline_list))
 
     # MLflow 기록
-    mlflow.log_metric(f"ndcg@{k}", mean_ndcg)
-    mlflow.log_metric(f"baseline_ndcg@{k}", mean_baseline)
+    mlflow.log_metric(f"ndcg_{k}", mean_ndcg)
+    mlflow.log_metric(f"baseline_ndcg_{k}", mean_baseline)
     mlflow.log_metric(
-        "ndcg_improvement_pct",
+        f"ndcg_improvement_pct_{k}",
         (mean_ndcg - mean_baseline) / mean_baseline * 100
     )
+
 
     print("=" * 40)
     print(f"NDCG@{k} (baseline): {mean_baseline:.4f}")

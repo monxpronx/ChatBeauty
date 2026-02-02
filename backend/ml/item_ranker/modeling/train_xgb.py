@@ -10,60 +10,63 @@ from backend.ml.item_ranker.features import FeatureBuilder
 def train_reranker_xgb(
     data_path: str,
     model_path: str,
+    run_name: str,
     limit: Optional[int] = None,
 ):
-    mlflow.set_experiment("reranker-xgboost")
+    mlflow.set_experiment("ReRanker-XGBoost")
+    with mlflow.start_run(run_name=run_name):
 
-    ##### 하이퍼파라미터 ######
-    params = {
-        "objective": "rank:ndcg",
-        "eval_metric": "ndcg@10",
-        "eta": 0.05,
-        "max_depth": 6,
-        "tree_method": "hist",
-        "seed": 42,
-    }
-    mlflow.log_params(params)
+        ##### 하이퍼파라미터 ######
+        params = {
+            "objective": "rank:ndcg",
+            "eval_metric": "ndcg@10",
+            "eta": 0.05,
+            "max_depth": 6,
+            "tree_method": "hist",
+            "seed": 42,
+        }
+    
+        mlflow.log_params(params)
 
-    feature_builder = FeatureBuilder()
+        feature_builder = FeatureBuilder()
 
-    X_list, y_list, group = [], [], []
+        X_list, y_list, group = [], [], []
 
-    for sample in iter_samples(data_path, limit=limit):
-        feats = feature_builder.build(sample)
-        labels = sample.labels
+        for sample in iter_samples(data_path, limit=limit):
+            feats = feature_builder.build(sample)
+            labels = sample.labels
 
-        X_list.append(np.array(feats, dtype=np.float32))
-        y_list.append(np.array(labels, dtype=np.float32))
-        group.append(len(feats))
+            X_list.append(np.array(feats, dtype=np.float32))
+            y_list.append(np.array(labels, dtype=np.float32))
+            group.append(len(feats))
 
-        if len(group) % 1000 == 0:
-            print(f"Processed {len(group)} queries")
+            if len(group) % 1000 == 0:
+                print(f"Processed {len(group)} queries")
 
-    print("Concatenating features...")
-    X = np.vstack(X_list)
-    y = np.concatenate(y_list)
+        print("Concatenating features...")
+        X = np.vstack(X_list)
+        y = np.concatenate(y_list)
 
-    dtrain = xgb.DMatrix(X, label=y)
-    dtrain.set_group(group)
+        dtrain = xgb.DMatrix(X, label=y)
+        dtrain.set_group(group)
 
-    print("Training XGBoost Ranker...")
-    model = xgb.train(
-        params=params,
-        dtrain=dtrain,
-        num_boost_round=300,
-    )
+        print("Training XGBoost Ranker...")
+        model = xgb.train(
+            params=params,
+            dtrain=dtrain,
+            num_boost_round=300,
+        )
 
-    # 모델 저장
-    model.save_model(model_path)
-    mlflow.log_artifact(model_path)
+        # 모델 저장
+        model.save_model(model_path)
+        mlflow.log_artifact(model_path)
 
-    # MLflow 모델로 저장
-    mlflow.xgboost.log_model(
-        model,
-        artifact_path="model"
-    )
+        # MLflow 모델로 저장
+        mlflow.xgboost.log_model(
+            model,
+            name="model"
+        )
 
-    print(f"[OK] Model saved to {model_path}")
+        print(f"[OK] Model saved to {model_path}")
 
-    return model
+        return model
