@@ -108,13 +108,13 @@ Extract contextual keywords using LLaMA 3.1 (WHO/WHEN/WHY the product is useful)
 
 ```bash
 # Ollama (default)
-python ml/03_retriever/extract_keywords_with_llama.py
+python ml/retriever/extract_keywords_with_llama.py
 
 # vLLM (faster, requires GPU)
-python ml/03_retriever/extract_keywords_with_llama.py BACKEND=vllm BATCH_SIZE=64
+python ml/retriever/extract_keywords_with_llama.py BACKEND=vllm BATCH_SIZE=64
 
 # Test with limited items
-python ml/03_retriever/extract_keywords_with_llama.py BACKEND=vllm MAX_ITEMS=100
+python ml/retriever/extract_keywords_with_llama.py BACKEND=vllm MAX_ITEMS=100
 ```
 
 **Note**: After extraction, add `parent_asin` by joining with reviews file (see data preparation scripts).
@@ -125,10 +125,10 @@ Combines keywords + metadata + description summaries into final item representat
 
 ```bash
 # With description summarization (uses cached summaries if available)
-python ml/02_features/merge_metadata.py BACKEND=vllm
+python ml/features/merge_metadata.py BACKEND=vllm
 
 # Skip LLM (use cached summaries only)
-python ml/02_features/merge_metadata.py USE_LLM=false
+python ml/features/merge_metadata.py USE_LLM=false
 ```
 
 **Output format** (items_for_embedding.jsonl):
@@ -142,10 +142,10 @@ Generate embeddings with BGE-M3 and store in ChromaDB.
 
 ```bash
 # Base BGE-M3 model
-python ml/03_retriever/save_to_chromadb.py
+python ml/retriever/save_to_chromadb.py
 
 # With options
-python ml/03_retriever/save_to_chromadb.py BATCH_SIZE=64 USE_GPU=true
+python ml/retriever/save_to_chromadb.py BATCH_SIZE=64 USE_GPU=true
 ```
 
 ### Step 4: Create Training Pairs
@@ -154,13 +154,13 @@ Generate (query, positive_document) pairs for fine-tuning. The query represents 
 
 ```bash
 # Keywords only (default)
-python ml/03_retriever/create_training_pairs.py
+python ml/retriever/create_training_pairs.py
 
 # Raw review text as query (recommended for better recall)
-python ml/03_retriever/create_training_pairs.py QUERY_TYPE=review_text
+python ml/retriever/create_training_pairs.py QUERY_TYPE=review_text
 
 # Both keywords and review text (~2x training pairs, best results)
-python ml/03_retriever/create_training_pairs.py QUERY_TYPE=both
+python ml/retriever/create_training_pairs.py QUERY_TYPE=both
 ```
 
 **Query Types**:
@@ -183,13 +183,13 @@ Fine-tune using sentence-transformers with MultipleNegativesRankingLoss. In-batc
 
 ```bash
 # Recommended settings for V100 32GB with QUERY_TYPE=both training data
-nohup python ml/03_retriever/finetune_bge_m3.py EPOCHS=2 BATCH_SIZE=32 EVAL_STEPS=10000 > finetune_bge_m3.log 2>&1 &
+nohup python ml/retriever/finetune_bge_m3.py EPOCHS=2 BATCH_SIZE=32 EVAL_STEPS=10000 > finetune_bge_m3.log 2>&1 &
 
 # Basic training (smaller GPU)
-python ml/03_retriever/finetune_bge_m3.py BATCH_SIZE=16
+python ml/retriever/finetune_bge_m3.py BATCH_SIZE=16
 
 # Lower batch size if GPU OOM (review text queries are longer than keywords)
-python ml/03_retriever/finetune_bge_m3.py BATCH_SIZE=8
+python ml/retriever/finetune_bge_m3.py BATCH_SIZE=8
 ```
 
 **GPU Memory Notes**:
@@ -212,7 +212,7 @@ python ml/03_retriever/finetune_bge_m3.py BATCH_SIZE=8
 After fine-tuning, rebuild ChromaDB with the new model to update item embeddings.
 
 ```bash
-python ml/03_retriever/save_to_chromadb.py MODEL_PATH=./models/bge-m3-finetuned-YYYYMMDD-HHMMSS
+python ml/retriever/save_to_chromadb.py MODEL_PATH=./models/bge-m3-finetuned-YYYYMMDD-HHMMSS
 ```
 
 ## Evaluation
@@ -248,10 +248,10 @@ python ml/03_retriever/save_to_chromadb.py MODEL_PATH=./models/bge-m3-finetuned-
 
 ```bash
 # First, retrieve candidates
-python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-YYYYMMDD SPLIT=valid QUERY_TYPE=review_text
+python ml/evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-YYYYMMDD SPLIT=valid QUERY_TYPE=review_text
 
 # Then evaluate
-python ml/04_evaluation/evaluate_recall.py SPLIT=valid
+python ml/evaluation/evaluate_recall.py SPLIT=valid
 ```
 
 ## Command Reference
@@ -268,10 +268,10 @@ python ml/04_evaluation/evaluate_recall.py SPLIT=valid
 
 ### merge_metadata.py
 
-nohup python ml/02_features/merge_metadata.py BACKEND=vllm > merge_metadata.log 2>&1 &
+nohup python ml/features/merge_metadata.py BACKEND=vllm > merge_metadata.log 2>&1 &
 
 # Skip LLM summarization (just merge existing data)
-python ml/02_features/merge_metadata.py USE_LLM=false
+python ml/features/merge_metadata.py USE_LLM=false
 ```
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -312,13 +312,13 @@ Retrieve top-K candidates from ChromaDB for a given data split using the fine-tu
 
 ```bash
 # Retrieve candidates for test split (default)
-python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129
+python ml/evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129
 
 # Retrieve candidates for train split (for re-ranker training data)
-python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129 SPLIT=train
+python ml/evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129 SPLIT=train
 
 # With options
-python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129 SPLIT=test TOP_K=100 BATCH_SIZE=256
+python ml/evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetuned-20260128-174129 SPLIT=test TOP_K=100 BATCH_SIZE=256
 ```
 
 | Option | Default | Description |
@@ -338,8 +338,8 @@ python ml/04_evaluation/retrieve_candidates.py MODEL_PATH=./models/bge-m3-finetu
 Compute Recall@K and MRR from retrieval candidates.
 
 ```bash
-python ml/04_evaluation/evaluate_recall.py SPLIT=valid
-python ml/04_evaluation/evaluate_recall.py SPLIT=test
+python ml/evaluation/evaluate_recall.py SPLIT=valid
+python ml/evaluation/evaluate_recall.py SPLIT=test
 ```
 
 | Option | Default | Description |
@@ -352,17 +352,17 @@ python ml/04_evaluation/evaluate_recall.py SPLIT=test
 
 ```
 backend/ml/
-├── 02_features/
+├── features/
 │   └── merge_metadata.py          # Merge keywords + metadata → items_for_embedding
-├── 03_retriever/
+├── retriever/
 │   ├── extract_keywords_with_llama.py  # Extract keywords from reviews
 │   ├── create_training_pairs.py        # Generate fine-tuning pairs
 │   ├── finetune_bge_m3.py              # Fine-tune BGE-M3
 │   └── save_to_chromadb.py             # Generate embeddings → ChromaDB
-├── 04_evaluation/
+├── evaluation/
 │   ├── retrieve_candidates.py         # Retrieve top-K candidates from ChromaDB
 │   └── evaluate_recall.py             # Compute Recall@K and MRR
-├── 04_item_ranker/
+├── item_ranker/
 │   ├── dataset.py                     # Data classes for re-ranking (TODO)
 │   └── features.py                    # Feature builder for re-ranking (TODO)
 ├── utils/
