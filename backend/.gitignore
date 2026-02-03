@@ -15,9 +15,16 @@ ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/*
 !ml/data/processed/.gitkeep
+ml/data/chromadb/*
+!ml/data/chromadb/.gitkeep
+ml/data/evaluation/*
+!ml/data/evaluation/.gitkeep
+
 ml/features/*
 ml/mlruns/*
 ml/model/reranking/*
+ml/model/retrieval/*
+!ml/model/*/.gitkeep
 ml/artifacts/*
 *.db
 # Distribution / packaging
@@ -191,17 +198,6 @@ pyrightconfig.json
 
 models/
 # End of https://www.toptal.com/developers/gitignore/api/python
-
-# Data files
-data/raw/
-data/processed/
-data/chromadb/
-data/evaluation/
-
-# Model files
-ml/model/
-ml/*/model/
-models/
 
 # Misc
 *.pdf
