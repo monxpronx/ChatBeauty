@@ -13,4 +13,13 @@ dist/
 *.swo
 .DS_Store
 
-CLAUDE.md
+# models & data (local only)
+backend/models/
+backend/data/
+
+# vector db / cache
+backend/data/chromadb/
+
+# env
+.env
+.env.*
