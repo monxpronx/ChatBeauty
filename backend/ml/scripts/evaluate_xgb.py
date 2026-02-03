@@ -53,4 +53,6 @@ if __name__ == "__main__":
     VALID_PATH = "backend/ml/data/processed/retrieval_candidates_valid.jsonl"
     MODEL_PATH = "backend/ml/model/reranking/xgb_ranker.pkl"
 
-    evaluate(VALID_PATH, MODEL_PATH, k=10)
+    mlflow.set_experiment("reranker-xgboost")
+    with mlflow.start_run(run_name="baseline(max_depth=5)_eval"):
+        evaluate(VALID_PATH, MODEL_PATH, k=10)
