@@ -10,7 +10,7 @@ def main():
     train_reranker_xgb(
         data_path=data_path,
         model_path=model_path,
-        run_name="baseline_(max_depth=5)", ########### -> 이름 설정!
+        run_name="baseline_(max_depth=4)", ########### -> 이름 설정!
         limit=None
     )
 
