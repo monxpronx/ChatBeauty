@@ -21,7 +21,7 @@ def train_reranker_xgb(
             "objective": "rank:ndcg",
             "eval_metric": "ndcg@10",
             "eta": 0.05,
-            "max_depth": 4,
+            "max_depth": 3,
             "tree_method": "hist",
             "seed": 42,
         }
