@@ -248,17 +248,18 @@ def main():
     print("\n=== Starting training ===")
     model.fit(
         train_objectives=[(train_dataloader, train_loss)],
-        evaluator=evaluator,
+        #evaluator=evaluator,
         epochs=EPOCHS,
         warmup_steps=warmup_steps,
         optimizer_params={'lr': LEARNING_RATE},
         output_path=str(output_dir),
-        save_best_model=True,
+        save_best_model=False,
         show_progress_bar=True,
         use_amp=USE_FP16,  # Automatic Mixed Precision
-        evaluation_steps=EVAL_STEPS,
-        checkpoint_save_steps=SAVE_STEPS,
-        checkpoint_path=str(output_dir / 'checkpoints'),
+        #evaluation_steps=EVAL_STEPS,
+        #checkpoint_save_steps=SAVE_STEPS,
+        #checkpoint_save_total_limit=1,
+        #checkpoint_path=str(output_dir / 'checkpoints'),
     )
 
     print(f"\n=== Training complete ===")
