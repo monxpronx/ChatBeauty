@@ -1,0 +1,27 @@
+# Node/Frontend
+node_modules/
+dist/
+*.log
+.env.local
+.env.*.local
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# models & data (local only)
+backend/models/
+backend/data/
+
+# vector db / cache
+backend/data/chromadb/
+
+# env
+.env
+.env.*
+
+*.md
