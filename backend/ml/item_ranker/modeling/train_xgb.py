@@ -3,8 +3,8 @@ import numpy as np
 import mlflow
 import mlflow.xgboost
 from typing import Optional
-from backend.ml.item_ranker.dataset import iter_samples
-from backend.ml.item_ranker.features import FeatureBuilder
+from backend.ml.item_ranker.dataset_xgb import iter_samples
+from backend.ml.item_ranker.features_xgb import FeatureBuilder
 
 
 def train_reranker_xgb(

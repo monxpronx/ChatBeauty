@@ -2,8 +2,8 @@ import pickle
 import numpy as np
 import xgboost as xgb
 
-from backend.ml.item_ranker.dataset import iter_samples
-from backend.ml.item_ranker.features import FeatureBuilder
+from backend.ml.item_ranker.dataset_xgb import iter_samples
+from backend.ml.item_ranker.features_xgb import FeatureBuilder
 
 
 def rerank_candidates(

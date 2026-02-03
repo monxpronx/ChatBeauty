@@ -2,7 +2,7 @@ import mlflow
 import numpy as np
 from tqdm import tqdm
 from sklearn.metrics import ndcg_score
-from backend.ml.item_ranker.dataset import iter_samples
+from backend.ml.item_ranker.dataset_xgb import iter_samples
 from backend.ml.item_ranker.modeling.predict_xgb import XGBReranker
 
 
