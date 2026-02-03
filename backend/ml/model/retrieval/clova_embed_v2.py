@@ -2,7 +2,7 @@ import requests
 import os
 from typing import List
 
-def clova_embed_v2(texts: List[str], api_key: str, api_url: str = "https://clovastudio.naver.com/api/explorer/embedding/v2") -> list:
+def clova_embed_v2(texts: List[str], api_key: str, api_url: str = "https://clovastudio.naver.com/v1/api-tools/embedding/v2") -> list:
     """
     네이버 Clova Studio Explorer 임베딩 v2 API로 임베딩 벡터를 반환합니다.
     Args:
