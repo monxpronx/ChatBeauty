@@ -21,22 +21,14 @@ reranker = LGBMReranker(
 def rerank_items(query: str, candidates: list[dict], top_k: int):
     query_keywords = query.lower().split()
 
-    candidate_objs = []
-    for c in candidates:
-        candidate_objs.append(
-            Candidate(
-                item_id=c["item_id"],
-                retrieval_score=c["score"],
-                metadata={
-                    "item_asin": c["item_id"],
-                    "title": c.get("title"),
-                    "price": c.get("price"),
-                    "average_rating": c.get("average_rating"),
-                    "store": c.get("store"),
-                    "categories": c.get("categories"),
-                }
-            )
+    candidate_objs = [
+        Candidate(
+            item_id=c["item_id"],
+            retrieval_score=c["score"],
+            metadata=c,
         )
+        for c in candidates
+    ]
 
     sample = RerankSample(
         query_keywords=query_keywords,
@@ -48,13 +40,9 @@ def rerank_items(query: str, candidates: list[dict], top_k: int):
 
     reranked = []
     for c, s in zip(candidates, scores):
-        reranked.append({
-            "item_id": c["item_id"],
-            "score": float(s),
-            "item_name": c.get("title"),
-            "price": c.get("price"),
-            "average_rating": c.get("average_rating")
-        })
+        item = c.copy()
+        item["score"] = float(s)
+        reranked.append(item)
 
     reranked.sort(key=lambda x: x["score"], reverse=True)
     return reranked[:top_k]

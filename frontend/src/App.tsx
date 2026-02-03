@@ -16,66 +16,69 @@ function App() {
   };
 
   return (
-    <>
-      <header className="header">
-        <h1 className="title">뷰티 상품 추천 시스템</h1>
-      </header>
+  <>
+    <header className="header">
+      <h1 className="title">뷰티 상품 추천 시스템</h1>
+    </header>
 
-      <main className="main">
-        <div className="input-wrapper">
-          <div className="input-inner">
-            <textarea
-              value={query}
-              placeholder="추천 요청을 입력하세요"
-              rows={1}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                e.target.style.height = "auto";
-                e.target.style.height = e.target.scrollHeight + "px";
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleClick();
-                }
-              }}
-            />
-
-            <button className="submit-btn" onClick={handleClick}>
-              ▶
-            </button>
-          </div>
-
-          {result && (
-            <div className="result-box">
-              <ul className="item-list">
-                {result.recommendations.map((item) => (
-                  <li key={item.item_id} className="item-card">
-                    <div className="item-name-container">
-                      <strong className="item-name">{item.item_name}</strong>
-                    </div>
-
-                    <div className="item-info">
-                      <span className="item-id">ID: {item.item_id}</span>
-                      <span className="item-score">
-                        연관 점수: <strong>{item.score.toFixed(2)}</strong>
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-
-              {result.explanation && (
-                <div className="explanation">
-                  <p>{result.explanation}</p>
-                </div>
-              )}
-            </div>
-          )}
+    <main className="main">
+      <div className="input-wrapper">
+        <div className="input-inner">
+          <textarea
+            value={query}
+            placeholder="어떤 뷰티 상품을 찾으시나요? (예: 건성 피부용 수분 크림)"
+            rows={1}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height = e.target.scrollHeight + "px";
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleClick();
+              }
+            }}
+          />
+          <button className="submit-btn" onClick={handleClick}>▶</button>
         </div>
-      </main>
-    </>
-  );
+
+        {result && (
+          <div className="result-box">
+            {/* 1. 추천 상품 리스트 (이름만 깔끔하게) */}
+            <ul className="item-list">
+              {result.recommendations.map((item, index) => (
+                <li key={item.item_id} className="item-card">
+                  <div className="item-name-container">
+                    <span className="item-number">{index + 1}.</span>
+                    <strong className="item-name">{item.item_name}</strong>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* 2. 전체 추천 사유 (설명) */}
+            {result.explanation && (
+              <div className="explanation-section">
+                <h3 className="explanation-title">✨ AI 추천 분석</h3>
+                <div className="explanation-content">
+                  {/* 설명이 리스트로 올 경우를 대비해 처리 */}
+                  {Array.isArray(result.explanation) ? (
+                    result.explanation.map((exp, i) => (
+                      <p key={i} className="exp-text">{exp.explanation || exp}</p>
+                    ))
+                  ) : (
+                    <p className="exp-text">{result.explanation}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </main>
+  </>
+);
 }
 
 export default App;
