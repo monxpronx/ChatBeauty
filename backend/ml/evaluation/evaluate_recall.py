@@ -2,8 +2,8 @@
 Evaluate retrieval quality (Recall@K, MRR) from retrieval_candidates_{split}.jsonl.
 
 Usage:
-    python ml/04_evaluation/evaluate_recall.py SPLIT=valid
-    python ml/04_evaluation/evaluate_recall.py SPLIT=test
+    python ml/evaluation/evaluate_recall.py SPLIT=valid
+    python ml/evaluation/evaluate_recall.py SPLIT=test
 """
 
 import json
