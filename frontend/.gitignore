@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 
 .vite/
+
+
+# MLflow
+mlflow.db
+mlruns/
