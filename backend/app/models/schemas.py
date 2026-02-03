@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class RecommendRequest(BaseModel):
     user_input: str
@@ -11,4 +11,4 @@ class ItemScore(BaseModel):
     
 class RecommendResponse(BaseModel):
     recommendations: List[ItemScore]
-    explanation: str
+    explanation: Optional[str] = None

@@ -7,14 +7,15 @@ from app.services.explanation import generate_explanation
 router = APIRouter(prefix="/recommend", tags=["recommend"])
 
 @router.post("", response_model=RecommendResponse)
-def recommed(request: RecommendRequest):
-    candidates = retrieve_candidates(query=request.user_input)
-    ranked_items = rerank_items(candidates,request.top_k)
+def recommend(request: RecommendRequest):
+    candidates = retrieve_candidates(request.user_input)
+    ranked_items = rerank_items(
+        query=request.user_input,
+        candidates=candidates,
+        top_k=5,
+    )
     explanation = generate_explanation(ranked_items)
-    
+
     return RecommendResponse(
-        recommendations=[
-            ItemScore(**item) for item in ranked_items
-        ],
-        explanation=explanation
+        recommendations=ranked_items
     )

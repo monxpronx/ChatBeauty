@@ -20,6 +20,11 @@ ml/mlruns/*
 ml/model/reranking/*
 ml/artifacts/*
 *.db
+
+data/*
+
+models/*
+
 # Distribution / packaging
 .Python
 build/
