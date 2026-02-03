@@ -148,7 +148,7 @@ def main():
     # Step 5: Query ChromaDB and write results
     print(f"\n=== Step 5: Retrieving top-{TOP_K} candidates ===")
     # ChromaDB supports batch queries
-    chroma_batch_size = 200  # 200 * 100 = 20k SQL vars (under 32k limit)
+    chroma_batch_size = 200  # ChromaDB query batch limit
     written = 0
 
     with open(output_path, 'w', encoding='utf-8') as f_out:
