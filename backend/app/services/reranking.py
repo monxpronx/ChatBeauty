@@ -7,7 +7,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 RERANK_MODEL_PATH = (
-    BASE_DIR / "model" / "reranking" / "reranker_full_13_features.pkl"
+    BASE_DIR /"ml"/ "model" / "reranking" / "reranker_full_13_features.pkl"
 )
 
 feature_builder = FeatureBuilder()
@@ -49,9 +49,12 @@ def rerank_items(query: str, candidates: list[dict], top_k: int):
     reranked = []
     for c, s in zip(candidates, scores):
         reranked.append({
-            **c,
-            "rerank_score": float(s),
+            "item_id": c["item_id"],
+            "score": float(s),
+            "item_name": c.get("title"),
+            "price": c.get("price"),
+            "average_rating": c.get("average_rating")
         })
 
-    reranked.sort(key=lambda x: x["rerank_score"], reverse=True)
+    reranked.sort(key=lambda x: x["score"], reverse=True)
     return reranked[:top_k]

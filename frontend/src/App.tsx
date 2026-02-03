@@ -50,19 +50,26 @@ function App() {
             <div className="result-box">
               <ul className="item-list">
                 {result.recommendations.map((item) => (
-                  <li key={item.item_id}>
-                    <span className="item-id">{item.item_id}</span>
-                    <span className="item-score">
-                      {item.score.toFixed(2)}
-                    </span>
+                  <li key={item.item_id} className="item-card">
+                    <div className="item-name-container">
+                      <strong className="item-name">{item.item_name}</strong>
+                    </div>
+
+                    <div className="item-info">
+                      <span className="item-id">ID: {item.item_id}</span>
+                      <span className="item-score">
+                        연관 점수: <strong>{item.score.toFixed(2)}</strong>
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ul>
 
-              <div className="explanation">
-                <h3>추천 이유 설명</h3>
-                <p>{result.explanation}</p>
-              </div>
+              {result.explanation && (
+                <div className="explanation">
+                  <p>{result.explanation}</p>
+                </div>
+              )}
             </div>
           )}
         </div>

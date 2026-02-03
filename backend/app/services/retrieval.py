@@ -12,7 +12,7 @@ def retrieve_candidates(query: str, n: int = 20):
     results = collection.query(
         query_embeddings=embedding,
         n_results=n,
-        include=["distances", "metadatas", "ids"],
+        include=["distances", "metadatas", "documents"] 
     )
 
     if not results["ids"] or not results["ids"][0]:
@@ -31,6 +31,9 @@ def retrieve_candidates(query: str, n: int = 20):
             "average_rating": meta.get("average_rating", 0.0),
             "store": meta.get("store", ""),
             "categories": meta.get("categories", ""),
+            "features": meta.get("features", []),
+            "description_summary": meta.get("description_summary", ""),
+            "review_keywords": meta.get("review_keywords", []),
         })
 
     return candidates

@@ -6,6 +6,7 @@ export interface RecommendRequest {
 export interface ItemScore {
     item_id: string;
     score: number;
+    item_name: string;
 }
 
 export interface RecommendResponse {
