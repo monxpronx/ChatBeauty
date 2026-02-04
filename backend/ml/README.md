@@ -26,7 +26,8 @@ ml/
 │   ├── extract_keywords_with_llama.py
 │   ├── create_training_pairs.py
 │   ├── finetune_bge_m3.py
-│   └── save_to_chromadb.py
+│   ├── save_to_chromadb.py
+│   └── update_chromadb_metadata.py  # 메타데이터만 업데이트 (임베딩 유지)
 │
 ├── features/                   # Feature Engineering
 │   └── merge_metadata.py
@@ -149,6 +150,27 @@ python retriever/save_to_chromadb.py MODEL_PATH=./model/retriever/bge-m3-finetun
 
 **Output**: `data/chromadb/` (112k items)
 
+### Step 3-1: Update ChromaDB Metadata Only (Optional)
+
+임베딩을 재생성하지 않고 메타데이터만 업데이트합니다. 로컬에서 실행 가능 (GPU 불필요).
+
+```bash
+# 로컬 서버에서 실행 가능 (chromadb 패키지만 필요)
+python retriever/update_chromadb_metadata.py
+```
+
+**Features**:
+- 기존 임베딩 유지 (재생성 불필요)
+- raw metadata에서 새 필드 추가 (rating_number, details, image, description, features)
+- raw reviews에서 top_reviews, total_helpful_votes 집계
+- 약 5-10분 소요
+
+**Requirements**:
+- `chromadb` 패키지
+- `data/raw/meta_All_Beauty.jsonl`
+- `data/raw/All_Beauty.jsonl`
+- `data/chromadb/` (기존 ChromaDB)
+
 ### Step 4: Create Training Pairs
 
 BGE-M3 fine-tuning을 위한 학습 데이터를 생성합니다.
@@ -188,46 +210,95 @@ Fine-tuned 모델로 ChromaDB를 재구축합니다.
 python retriever/save_to_chromadb.py MODEL_PATH=./model/retriever/bge-m3-finetuned-YYYYMMDD
 ```
 
-### Step 7: Evaluate
+### Step 7: Retrieve Candidates
+
+후보를 검색합니다. `All_Beauty.jsonl`에서 직접 읽고 timestamp 기반으로 split합니다.
+
+```bash
+# Valid set 후보 검색
+python evaluation/retrieve_candidates.py \
+    MODEL_PATH=./model/retriever/bge-m3-finetuned-xxx \
+    SPLIT=valid
+
+# Train set 후보 검색 (re-ranking 학습용)
+python evaluation/retrieve_candidates.py \
+    MODEL_PATH=./model/retriever/bge-m3-finetuned-xxx \
+    SPLIT=train
+
+# Test set 후보 검색
+python evaluation/retrieve_candidates.py \
+    MODEL_PATH=./model/retriever/bge-m3-finetuned-xxx \
+    SPLIT=test
+```
+
+**Output Format** (lean - re-ranking features only):
+```json
+{
+  "parent_asin": "B07...",
+  "query_text": "I bought this for my daughter...",
+  "candidates": [
+    {"item_asin": "B07...", "score": 0.85, "price": 12.99, "average_rating": 4.5, "rating_number": 150, "total_helpful_votes": 42, "store": "Brand"},
+    ...
+  ]
+}
+```
+
+**Note**: Text fields (title, description, features, top_reviews, details, image) are fetched from ChromaDB after re-ranking for top-5 explanation.
+
+### Step 8: Evaluate Recall
 
 Retrieval 성능을 평가합니다.
 
 ```bash
-# 후보 검색
-python evaluation/retrieve_candidates.py \
-    MODEL_PATH=./model/retriever/bge-m3-finetuned-xxx \
-    SPLIT=valid \
-    QUERY_TYPE=review_text
-
-# Recall 평가
 python evaluation/evaluate_recall.py SPLIT=valid
+python evaluation/evaluate_recall.py SPLIT=test
 ```
 
 **Metrics Output**:
 ```
-========================================
-Split: valid | Queries: 68,000
-========================================
-  Recall@1    0.0523
-  Recall@5    0.1342
-  Recall@10   0.1876
-  Recall@20   0.2456
-  Recall@50   0.3127
-  Recall@100  0.3574
-  MRR         0.1024
-========================================
+==================================================
+Retrieval Evaluation - Split: valid
+==================================================
+Total queries: 68,000
+
+Recall@K:
+  Recall@1    0.0523  (3,556/68,000)
+  Recall@5    0.1342  (9,125/68,000)
+  Recall@10   0.1876  (12,756/68,000)
+  Recall@20   0.2456  (16,700/68,000)
+  Recall@50   0.3127  (21,263/68,000)
+  Recall@100  0.3574  (24,303/68,000)
+
+MRR:         0.1024
+==================================================
 ```
+
+## ChromaDB Metadata Schema (11 Fields)
+
+| # | Field | Type | Purpose | Coverage |
+|---|-------|------|---------|----------|
+| 1 | `price` | float | Re-ranking | 15.7% |
+| 2 | `average_rating` | float | Re-ranking | 100% |
+| 3 | `rating_number` | int | Re-ranking (popularity) | 100% |
+| 4 | `store` | str | Re-ranking | 89.9% |
+| 5 | `total_helpful_votes` | int | Re-ranking (trust) | ~100% |
+| 6 | `title` | str | Explanation | 100% |
+| 7 | `description` | str | Explanation (full text) | 17% |
+| 8 | `features` | str | Explanation (full text) | 15.4% |
+| 9 | `top_reviews` | str | Explanation (top 3 verified) | ~100% |
+| 10 | `details` | str | Explanation (JSON) | 96% |
+| 11 | `image` | str | Display (MAIN large URL) | 99.8% |
 
 ## Data Files
 
 | File | Location | Records | Description |
 |------|----------|---------|-------------|
-| `All_Beauty.jsonl` | `data/raw/` | 701k | 원본 리뷰 데이터 |
+| `All_Beauty.jsonl` | `data/raw/` | 701k | 원본 리뷰 데이터 (retrieval query source) |
 | `meta_All_Beauty.jsonl` | `data/raw/` | 112k | 제품 메타데이터 |
-| `keywords_{split}.jsonl` | `data/processed/` | 538k/68k/68k | LLM 추출 키워드 |
+| `keywords_{split}.jsonl` | `data/processed/` | 538k/68k/68k | LLM 추출 키워드 (embedding_text용) |
 | `items_for_embedding.jsonl` | `data/processed/` | 112k | 임베딩용 아이템 텍스트 |
 | `training_pairs.jsonl` | `data/processed/` | ~1M | Fine-tuning 학습 데이터 |
-| `retrieval_candidates_{split}.jsonl` | `data/evaluation/` | varies | Top-100 검색 결과 |
+| `retrieval_candidates_{split}.jsonl` | `data/evaluation/` | 560k/70k/70k | Top-100 검색 결과 (lean format) |
 
 ## Data Splitting
 

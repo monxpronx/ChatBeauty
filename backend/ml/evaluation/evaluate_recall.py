@@ -2,8 +2,9 @@
 Evaluate retrieval quality (Recall@K, MRR) from retrieval_candidates_{split}.jsonl.
 
 Usage:
-    python ml/evaluation/evaluate_recall.py SPLIT=valid
-    python ml/evaluation/evaluate_recall.py SPLIT=test
+    python evaluate_recall.py SPLIT=valid
+    python evaluate_recall.py SPLIT=test
+    python evaluate_recall.py SPLIT=train
 """
 
 import json
@@ -22,13 +23,14 @@ def parse_args():
 
 def main():
     cli_args = parse_args()
-    split = cli_args.get('SPLIT', 'test')
+    split = cli_args.get('SPLIT', 'valid')
 
     base_dir = Path(__file__).parent.parent  # backend/ml/
     candidates_path = base_dir / f'data/evaluation/retrieval_candidates_{split}.jsonl'
 
     if not candidates_path.exists():
         print(f"Error: {candidates_path} not found")
+        print(f"Run retrieve_candidates.py first with SPLIT={split}")
         return
 
     k_values = [1, 5, 10, 20, 50, 100]
@@ -60,15 +62,19 @@ def main():
         print("No queries found.")
         return
 
-    print("=" * 40)
-    print(f"Split: {split} | Queries: {total:,}")
-    print("=" * 40)
+    print("=" * 50)
+    print(f"Retrieval Evaluation - Split: {split}")
+    print("=" * 50)
+    print(f"Total queries: {total:,}")
+    print()
+    print("Recall@K:")
     for k in k_values:
         recall = hits[k] / total
         print(f"  Recall@{k:<4d} {recall:.4f}  ({hits[k]:,}/{total:,})")
     mrr = sum(reciprocal_ranks) / total
-    print(f"  MRR        {mrr:.4f}")
-    print("=" * 40)
+    print()
+    print(f"MRR:         {mrr:.4f}")
+    print("=" * 50)
 
 
 if __name__ == '__main__':

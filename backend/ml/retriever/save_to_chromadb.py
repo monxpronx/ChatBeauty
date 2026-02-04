@@ -120,16 +120,25 @@ def save_to_chromadb(
 
         documents.append(item['embedding_text'])
         ids.append(item['asin'])
-        # ChromaDB does not accept None — guard every field
+
+        # ChromaDB metadata: 11 fields (ChromaDB does not accept None — guard every field)
         meta = {
-            'title': item.get('title') or '',
-            'review_keywords': ', '.join(str(k) for k in (item.get('review_keywords') or [])),
-            'description_summary': ', '.join(str(s) for s in (item.get('description_summary') or [])),
-            'features': ', '.join(str(f) for f in (item.get('features') or []))[:500],
+            # Re-ranking features (5)
             'price': float(item.get('price') or 0.0),
             'average_rating': float(item.get('average_rating') or 0.0),
+            'rating_number': int(item.get('rating_number') or 0),
             'store': item.get('store') or '',
-            'categories': ', '.join(str(c) for c in (item.get('categories') or [])),
+            'total_helpful_votes': int(item.get('total_helpful_votes') or 0),
+
+            # Explanation text (5)
+            'title': item.get('title') or '',
+            'description': item.get('description') or '',
+            'features': item.get('features') or '',
+            'top_reviews': item.get('top_reviews') or '',
+            'details': item.get('details') or '',
+
+            # Display (1)
+            'image': item.get('image') or '',
         }
         metadatas.append(meta)
 
