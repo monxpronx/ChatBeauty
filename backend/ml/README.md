@@ -186,6 +186,40 @@ python retriever/create_training_pairs.py QUERY_TYPE=both
 
 **Output**: `data/processed/training_pairs.jsonl` (~1M pairs)
 
+**Features Used**:
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| `query` | `keywords_{split}.jsonl` | LLM-extracted keywords 또는 raw review text |
+| `positive` | `items_for_embedding.jsonl` | Item의 `embedding_text` (Title + Review Keywords + Description Summary + Features) |
+| `parent_asin` | `keywords_{split}.jsonl` | Ground truth item ID |
+
+**Pair Format by Query Type**:
+
+`QUERY_TYPE=keywords` (~538k pairs):
+```json
+{
+  "query": "sensitive skin, daily moisturizer, lightweight, no irritation",
+  "positive": "[Title] CeraVe Moisturizing Cream [Review Keywords] sensitive skin, eczema... [Description Summary] Rich moisturizer with ceramides... [Features] 16 oz jar, fragrance-free",
+  "parent_asin": "B00TTD9BRC"
+}
+```
+
+`QUERY_TYPE=review_text` (~538k pairs):
+```json
+{
+  "query": "I have very sensitive skin and this is the only moisturizer that doesn't irritate it. Perfect for dry winter months!",
+  "positive": "[Title] CeraVe Moisturizing Cream [Review Keywords] sensitive skin, eczema... [Description Summary] Rich moisturizer with ceramides... [Features] 16 oz jar, fragrance-free",
+  "parent_asin": "B00TTD9BRC"
+}
+```
+
+`QUERY_TYPE=both` (~1M pairs) - 동일 positive에 대해 2개 pair 생성:
+```json
+{"query": "sensitive skin, daily moisturizer, lightweight", "positive": "[Title] CeraVe...", "parent_asin": "B00TTD9BRC"}
+{"query": "I have very sensitive skin and this is the only moisturizer...", "positive": "[Title] CeraVe...", "parent_asin": "B00TTD9BRC"}
+```
+
 ### Step 5: Fine-tune BGE-M3
 
 Contrastive learning으로 BGE-M3를 fine-tune합니다.
