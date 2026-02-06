@@ -25,19 +25,21 @@ def recommend(request: RecommendRequest):
     )
 
     explanations_data = generate_explanation(explanation_input)
-
+    
+    explanations = explanations_data.get("explanations", [])
+    explanation_map = {exp["item_id"]: exp["explanation"] for exp in explanations}
     formatted_recommendations = [
-        {
-            "item_id": item["item_id"],
-            "item_name": item.get("title", "Unknown Item"),
-            "score": item.get("score", 0.0)
-        }
-        for item in ranked_items
-    ]
+    {
+        "item_id": item["item_id"],
+        "item_name": item.get("title", "Unknown Item"),
+        "score": item.get("score", 0.0),
+        "explanation": explanation_map.get(item["item_id"])
+    }
+    for item in ranked_items
+]
 
     return RecommendResponse(
-        recommendations=formatted_recommendations,
-        explanation=explanations_data.get("explanations", [])
+    recommendations=formatted_recommendations
     )
     
 def build_explanation_input(user_query: str, ranked_items: list[dict]):
@@ -49,10 +51,10 @@ def build_explanation_input(user_query: str, ranked_items: list[dict]):
                 "title": item.get("title", ""),
                 "price": item.get("price", 0.0),
                 "average_rating": item.get("average_rating", 0.0),
-                "categories": item.get("categories", ""),
                 "features": item.get("features", ""),
-                "description_summary": item.get("description_summary", ""),
-                "review_keywords": item.get("review_keywords", ""),
+                "top_reviews": item.get("top_reviews", ""),
+                "details": item.get("details", ""),
+                "description": item.get("description", ""),
             }
             for item in ranked_items
         ]

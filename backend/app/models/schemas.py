@@ -6,9 +6,9 @@ class RecommendRequest(BaseModel):
     
 class ItemScore(BaseModel):
     item_id: str
-    score: float
     item_name: str
+    score: float
+    explanation: Optional[str] = None
     
 class RecommendResponse(BaseModel):
     recommendations: List[ItemScore]
-    explanation: Any

@@ -7,9 +7,9 @@ export interface ItemScore {
     item_id: string;
     score: number;
     item_name: string;
+    explanation?: string;
 }
 
 export interface RecommendResponse {
     recommendations: ItemScore[];
-    explanation: string
 }

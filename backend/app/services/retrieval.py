@@ -34,6 +34,10 @@ def retrieve_candidates(query: str, n: int = 20):
             "features": meta.get("features", []),
             "description_summary": meta.get("description_summary", ""),
             "review_keywords": meta.get("review_keywords", []),
+            "top_reviews": meta.get("top_reviews", ""),
+            "description": meta.get("description", ""),
+            "details": meta.get("details", ""),
+            "image": meta.get("image", ""),
         })
 
     return candidates
