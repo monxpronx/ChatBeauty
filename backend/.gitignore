@@ -24,9 +24,13 @@ ml/features/*
 ml/mlruns/*
 ml/model/reranking/*
 ml/model/retrieval/*
-!ml/model/*/.gitkeep
 ml/artifacts/*
 *.db
+
+data/*
+
+models/*
+
 # Distribution / packaging
 .Python
 build/
