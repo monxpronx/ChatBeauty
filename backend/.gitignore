@@ -18,8 +18,14 @@ ml/data/processed/*
 ml/features/*
 ml/mlruns/*
 ml/model/reranking/*
+ml/model/retrieval/*
 ml/artifacts/*
 *.db
+
+data/*
+
+models/*
+
 # Distribution / packaging
 .Python
 build/
