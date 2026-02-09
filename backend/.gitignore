@@ -15,13 +15,24 @@ ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/*
 !ml/data/processed/.gitkeep
+ml/data/cleaned/*
+!ml/data/cleaned/.gitkeep
+ml/data/chromadb/*
+!ml/data/chromadb/.gitkeep
+ml/data/evaluation/*
+!ml/data/evaluation/.gitkeep
+models/*
+ml/features/*
+ml/mlruns/*
+ml/model/reranking/*
+ml/model/retrieval/*
+ml/artifacts/*
+*.db
+ml/data/*
+data/*
 
-<<<<<<< HEAD
-=======
-# Ignore large data file
-ml/data/meta_All_Beauty.jsonl
+models/*
 
->>>>>>> de40ca398ead0b36045206233bb3985b0f5a9971
 # Distribution / packaging
 .Python
 build/
@@ -188,25 +199,16 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
+# trained models
+*.pkl
+backend/ml/model/
+
+models/
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-generated_query/
-
-# Ignore Python cache
-__pycache__/
-*.pyc
-
-# Ignore virtual environments
-venv/
-
-# Ignore data and large files
-backend/ml/model/make_db/chromadb/
-*.bin
-*.sqlite3
-*.parquet
-*.npy
-*.npz
-*.pt
-*.h5
-*.pkl
-
+# Misc
+*.pdf
+*.jsonl
+*.swp
+*.swo
+.DS_Store
