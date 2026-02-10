@@ -8,6 +8,11 @@ export interface ItemScore {
     score: number;
     item_name: string;
     explanation?: string;
+    image?: string;
+    price?: number;
+    average_rating?: number;
+    rating_number?: number;
+    store?: string;
 }
 
 export interface RecommendResponse {

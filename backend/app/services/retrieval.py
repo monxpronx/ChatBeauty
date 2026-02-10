@@ -29,6 +29,7 @@ def retrieve_candidates(query: str, n: int = 20):
             "title": meta.get("title", ""),
             "price": meta.get("price", 0.0),
             "average_rating": meta.get("average_rating", 0.0),
+            "rating_number": meta.get("rating_number", 0),
             "store": meta.get("store", ""),
             "categories": meta.get("categories", ""),
             "features": meta.get("features", []),

@@ -29,14 +29,19 @@ def recommend(request: RecommendRequest):
     explanations = explanations_data.get("explanations", [])
     explanation_map = {exp["item_id"]: exp["explanation"] for exp in explanations}
     formatted_recommendations = [
-    {
-        "item_id": item["item_id"],
-        "item_name": item.get("title", "Unknown Item"),
-        "score": item.get("score", 0.0),
-        "explanation": explanation_map.get(item["item_id"])
-    }
-    for item in ranked_items
-]
+        {
+            "item_id": item["item_id"],
+            "item_name": item.get("title", "Unknown Item"),
+            "score": item.get("score", 0.0),
+            "explanation": explanation_map.get(item["item_id"]),
+            "image": item.get("image", ""),
+            "price": item.get("price", 0.0),
+            "average_rating": item.get("average_rating", 0.0),
+            "rating_number": int(item.get("rating_number", 0)),
+            "store": item.get("store", ""),
+        }
+        for item in ranked_items
+    ]
 
     return RecommendResponse(
     recommendations=formatted_recommendations
