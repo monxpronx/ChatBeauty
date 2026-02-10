@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 source ~/.bashrc
+source /data/ephemeral/home/py310/bin/activate
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 echo "Project root: $PROJECT_ROOT"
