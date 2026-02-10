@@ -46,12 +46,7 @@ ChatBeauty는 다음을 제공합니다.
 
 서비스 전체 흐름은 다음과 같습니다.
 
-- 사용자 질의 입력
-- User Encoder를 통한 Query Embedding 생성
-- Item Encoder로 생성된 Item Embedding과 Vector DB 검색
-- 후보 아이템 Retrieval
-- LightGBM Ranker로 재정렬
-- Top-N 추천 + 설명 생성
+![Service Pipeline](images/service_pipeline.png)
 
 ---
 
@@ -59,30 +54,36 @@ ChatBeauty는 다음을 제공합니다.
 
 ### 🔹 Data Structure
 
-- Product 정보
-- Ingredient 정보
-- Skin type / concern 정보
-- Metadata (category, brand, etc.)
+![data structure](images/Amazon_data.png)
+
+---
+
+### 🔹 EDA
+
+![eda](images/EDA.png)
 
 ---
 
 ### 🔹 Data Preprocessing
 
-- 결측치 처리
-- 텍스트 정제
-- 성분 벡터화
-- 사용자 질의 전처리
-- 추천에 필요한 Feature 생성
+### 문제 상황
+ 사용자 리뷰 데이터에 대한 신뢰성 확보
+### 해결 방법
+- 활동 시간 대비 리뷰 과다
+  : 1시간 이내 리뷰를 10개 이상 작성한 유저 
+- 평점 분산 기반
+  : 리뷰 수가 5개 이상인 유저 중 모든 평점을 동일하게 작성한 유저
+
+→ 위 조건 중 하나라도 만족할 경우 비정상 의심 유저로 분류
+
+적용 결과 
+약 0.3% 유저 데이터 제거
 
 ---
 
 ### 🔹 Database Schema
 
-- User
-- Product
-- Ingredient
-- Review
-- Metadata 테이블 구성
+![database schema](images/data_schema.png)
 
 ---
 
@@ -92,21 +93,7 @@ ChatBeauty는 다음을 제공합니다.
 
 ChatBeauty는 Two-Tower 기반 구조를 사용합니다.
 
-- **User Tower**
-  - 사용자 질의 인코딩
-  - 피부 타입 및 선호 조건 반영
-
-- **Item Tower**
-  - 제품 설명, 성분, 메타데이터 인코딩
-
-- **Vector DB**
-  - Embedding 기반 Retrieval
-
-- **Ranker**
-  - LightGBM으로 Top-K 재정렬
-
-- **Explainability**
-  - 추천 이유 생성
+![model architecture](images/model_architecture.png)
 
 ---
 
@@ -124,6 +111,7 @@ ChatBeauty는 Two-Tower 기반 구조를 사용합니다.
 ## 👥 Team
 
 ChatBeauty Project Team - RecSys-07
+![team members](images/team_members.png)
 
 ---
 
@@ -135,13 +123,15 @@ ChatBeauty Project Team - RecSys-07
 
 ## 🛠 Tech Stack
 
-- Python
-- PyTorch
-- LightGBM
-- Vector DB (FAISS / Chroma)
-- FastAPI
-- Pandas / Numpy
-- HuggingFace Embedding Models
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat&logo=pytorch&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat&logo=pandas&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat&logo=numpy&logoColor=white)
+![Chroma](https://img.shields.io/badge/ChromaDB-5A67D8?style=flat)
+![MLflow](https://img.shields.io/badge/MLflow-0194E2?style=flat&logo=mlflow&logoColor=white)
+
+
 
 ---
 
