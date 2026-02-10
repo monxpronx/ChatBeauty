@@ -15,6 +15,8 @@ ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/*
 !ml/data/processed/.gitkeep
+ml/data/evaluation/*
+!ml/data/evaluation/.gitkeep
 ml/features/*
 ml/mlruns/*
 ml/model/reranking/*
