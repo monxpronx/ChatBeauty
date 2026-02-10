@@ -15,8 +15,14 @@ ml/data/raw/*
 !ml/data/raw/.gitkeep
 ml/data/processed/*
 !ml/data/processed/.gitkeep
+
+ml/data/cleaned/*
+!ml/data/cleaned/.gitkeep
+ml/data/chromadb/*
+!ml/data/chromadb/.gitkeep
 ml/data/evaluation/*
 !ml/data/evaluation/.gitkeep
+
 ml/features/*
 ml/mlruns/*
 ml/model/reranking/*
@@ -194,4 +200,16 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
+# trained models
+*.pkl
+backend/ml/model/
+
+models/
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+# Misc
+*.pdf
+*.jsonl
+*.swp
+*.swo
+.DS_Store
