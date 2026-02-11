@@ -6,7 +6,9 @@ from typing import Iterable
 
 from vllm import LLM, SamplingParams
 
-import Generate_query as gq
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+import generate_query as gq
 
 
 def _count_lines(path: Path) -> int:

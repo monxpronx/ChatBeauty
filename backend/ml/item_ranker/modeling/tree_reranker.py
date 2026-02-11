@@ -1,9 +1,9 @@
 from typing import List
 import lightgbm as lgb
 
-from item_ranker.features import FeatureBuilder
-from item_ranker.dataset import RerankSample
-from item_ranker.modeling.predict import Reranker
+from item_ranker.features_lgbm import FeatureBuilder
+from item_ranker.dataset_lgbm import RerankSample
+from item_ranker.modeling.predict_lgbm import Reranker
 
 
 class TreeReranker(Reranker):

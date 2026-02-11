@@ -3,9 +3,9 @@ import mlflow
 from tqdm import tqdm
 from sklearn.metrics import ndcg_score
 
-from item_ranker.dataset import iter_samples
-from item_ranker.modeling.predict import LGBMReranker
-from item_ranker.features import FeatureBuilder
+from item_ranker.dataset_lgbm import iter_samples
+from item_ranker.modeling.predict_lgbm import LGBMReranker
+from item_ranker.features_lgbm import FeatureBuilder
 
 
 def evaluate(data_path: str, model_path: str, feature_builder: FeatureBuilder, k: int = 10):

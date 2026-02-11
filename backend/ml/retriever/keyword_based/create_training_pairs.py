@@ -9,9 +9,9 @@ Each training sample consists of:
 Output format compatible with sentence-transformers training.
 
 Usage:
-    python create_training_pairs.py
-    python create_training_pairs.py OUTPUT_FORMAT=triplet  # query, positive, negative
-    python create_training_pairs.py OUTPUT_FORMAT=pair     # query, positive only
+    python ml/retriever/query_prep/create_training_pairs.py
+    python ml/retriever/query_prep/create_training_pairs.py OUTPUT_FORMAT=triplet  # query, positive, negative
+    python ml/retriever/query_prep/create_training_pairs.py OUTPUT_FORMAT=pair     # query, positive only
 """
 
 import json
@@ -195,7 +195,7 @@ def main():
         INCLUDE_REVIEW_TEXT = True
 
     # File paths
-    base_dir = Path(__file__).parent.parent  # backend/ml/
+    base_dir = Path(__file__).parent.parent.parent  # backend/ml/
 
     keywords_path = base_dir / 'data/processed/keywords_train.jsonl'
     items_path = base_dir / 'data/processed/items_for_embedding.jsonl'

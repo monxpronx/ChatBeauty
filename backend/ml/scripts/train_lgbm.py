@@ -2,8 +2,8 @@ import os
 import mlflow
 import mlflow.lightgbm
 
-from item_ranker.features import FeatureBuilder
-from item_ranker.modeling.train import train_reranker
+from item_ranker.features_lgbm import FeatureBuilder
+from item_ranker.modeling.train_lgbm import train_reranker
 
 
 def run_experiment(

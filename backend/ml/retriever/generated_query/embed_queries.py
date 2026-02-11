@@ -3,7 +3,9 @@ import os
 from typing import Dict
 import numpy as np
 import pickle
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
 from query_embedding import get_query_embedding
 
 def embed_queries_from_matched_jsonl(jsonl_path: str, cache_file: str = None) -> Dict[str, np.ndarray]:

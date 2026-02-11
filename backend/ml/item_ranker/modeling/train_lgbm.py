@@ -4,8 +4,8 @@ import lightgbm as lgb
 from sklearn.metrics import ndcg_score
 from typing import Optional, Dict, Tuple
 
-from item_ranker.features import FeatureBuilder
-from item_ranker.dataset import iter_samples
+from item_ranker.features_lgbm import FeatureBuilder
+from item_ranker.dataset_lgbm import iter_samples
 
 
 def train_reranker(

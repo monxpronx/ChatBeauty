@@ -1,9 +1,14 @@
 import json
 import random
+import sys
 import numpy as np
 from typing import List, Tuple
-from embed_queries_from_matched_jsonl import embed_queries_from_matched_jsonl
-from load_item_embeddings import load_item_embeddings_from_chromadb
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from embed_queries import embed_queries_from_matched_jsonl
+# NOTE: load_item_embeddings_from_chromadb is not yet implemented.
+# This module needs a ChromaDB item embedding loader to work.
 
 def prepare_training_pairs(
     matched_jsonl_path: str,

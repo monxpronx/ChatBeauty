@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from item_ranker.dataset import RerankSample
+from item_ranker.dataset_lgbm import RerankSample
 
 
 class FeatureBuilder:

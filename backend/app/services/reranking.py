@@ -1,6 +1,6 @@
-from item_ranker.dataset import Candidate, RerankSample
-from item_ranker.features import FeatureBuilder
-from item_ranker.modeling.predict import LGBMReranker
+from item_ranker.dataset_lgbm import Candidate, RerankSample
+from item_ranker.features_lgbm import FeatureBuilder
+from item_ranker.modeling.predict_lgbm import LGBMReranker
 from pathlib import Path
 
 
