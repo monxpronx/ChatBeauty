@@ -1,5 +1,7 @@
 # 💄 ChatBeauty - LLM & RAG 기반 아마존 뷰티 상품 추천 시스템
 
+> [English version (README_EN.md)](README_EN.md)
+
 ChatBeauty는 사용자의 피부 타입, 피부 고민, 선호 조건을 기반으로
 **개인 맞춤형 화장품을 추천하고 추천 이유까지 설명해주는 서비스**입니다.
 
