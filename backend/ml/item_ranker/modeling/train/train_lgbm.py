@@ -1,32 +1,30 @@
 import pickle
-import numpy as np
+import pandas as pd
 import lightgbm as lgb
 from sklearn.metrics import ndcg_score
 from typing import Optional, Dict, Tuple
-
-from item_ranker.features_lgbm import FeatureBuilder
-from item_ranker.dataset_lgbm import iter_samples
-
+from item_ranker.features.tree import TreeFeatureBuilder
+from item_ranker.dataset import iter_samples
 
 def train_reranker(
     data_path: str,
     model_path: str,
-    feature_builder: FeatureBuilder,
-    limit: Optional[int] = None
+    feature_builder: TreeFeatureBuilder,
+    limit: Optional[int] = None,
 ) -> Tuple[lgb.LGBMRanker, Dict[str, float]]:
 
     X_list, y_list, group = [], [], []
 
     for sample in iter_samples(data_path, limit=limit):
-        feats = feature_builder.build(sample)
+        df = feature_builder.build(sample)
         labels = sample.labels
 
-        X_list.append(np.array(feats, dtype=np.float32))
-        y_list.append(np.array(labels, dtype=np.float32))
-        group.append(len(feats))
+        X_list.append(df)
+        y_list.extend(labels)
+        group.append(len(df))
 
-    X = np.vstack(X_list)
-    y = np.concatenate(y_list)
+    X = pd.concat(X_list, ignore_index=True)
+    y = y_list
 
     model = lgb.LGBMRanker(
         objective="lambdarank",
@@ -42,21 +40,17 @@ def train_reranker(
     model.fit(X, y, group=group)
 
     y_pred = model.predict(X)
-    ndcg_scores = []
 
+    ndcg_scores = []
     start = 0
     for g in group:
         end = start + g
         ndcg_scores.append(
-            ndcg_score(
-                [y[start:end]],
-                [y_pred[start:end]],
-                k=10
-            )
+            ndcg_score([y[start:end]], [y_pred[start:end]], k=10)
         )
         start = end
 
-    mean_ndcg_10 = float(np.mean(ndcg_scores))
+    mean_ndcg_10 = float(sum(ndcg_scores) / len(ndcg_scores))
 
     with open(model_path, "wb") as f:
         pickle.dump(model, f)
@@ -64,6 +58,4 @@ def train_reranker(
     print(f"[OK] Model saved to {model_path}")
     print(f"[Metric] train_ndcg@10 = {mean_ndcg_10:.4f}")
 
-    return model, {
-        "train_ndcg_10": mean_ndcg_10
-    }
+    return model, {"train_ndcg_10": mean_ndcg_10}
