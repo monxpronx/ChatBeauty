@@ -1,18 +1,21 @@
-from item_ranker.dataset_lgbm import Candidate, RerankSample
-from item_ranker.features_lgbm import FeatureBuilder
-from item_ranker.modeling.predict_lgbm import LGBMReranker
+from item_ranker.dataset.base import Candidate, RerankSample
+from item_ranker.features.tree import TreeFeatureBuilder
+from item_ranker.modeling.predict.lgbm import LGBMTreeReranker
 from pathlib import Path
-
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 RERANK_MODEL_PATH = (
-    BASE_DIR /"ml"/ "model" / "reranking" / "reranker_full_13_features.pkl"
+    BASE_DIR / "ml" / "model" / "reranking" / "lgbm_reranker_current_features_v1.pkl"
 )
 
-feature_builder = FeatureBuilder()
+ITEM_FEAT_PATH = (
+    BASE_DIR / "ml" / "features" / "item_features_v1.csv"
+)
 
-reranker = LGBMReranker(
+feature_builder = TreeFeatureBuilder(str(ITEM_FEAT_PATH))
+
+reranker = LGBMTreeReranker(
     model_path=str(RERANK_MODEL_PATH),
     feature_builder=feature_builder,
 )

@@ -1,58 +1,64 @@
+import os
 import mlflow
+import mlflow.xgboost
+import xgboost as xgb
+import pandas as pd
 import numpy as np
-from tqdm import tqdm
 from sklearn.metrics import ndcg_score
-from backend.ml.item_ranker.dataset_xgb import iter_samples
-from backend.ml.item_ranker.modeling.predict_xgb import XGBReranker
+from item_ranker.features.tree import TreeFeatureBuilder
+from item_ranker.dataset.base import iter_samples
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_PATH = os.path.join(BASE_DIR, "data", "evaluation", "retrieval_candidates_train.jsonl")
+MODEL_PATH = os.path.join(BASE_DIR, "model", "reranking", "xgb_reranker_current_features_v1.json")
+ITEM_FEAT_PATH = os.path.join(BASE_DIR, "features", "item_features_v1.csv")
+EXPERIMENT_NAME = "Reranker_XGB_Current_Features"
 
-def evaluate(data_path: str, model_path: str, k: int = 10):
-    reranker = XGBReranker(model_path)
+def evaluate_ndcg(k: int = 10):
+    feature_builder = TreeFeatureBuilder(ITEM_FEAT_PATH)
 
-    ndcg_list = []
-    baseline_list = []
+    model = xgb.Booster()
+    model.load_model(MODEL_PATH)
+    print(f"[OK] Loaded model from {MODEL_PATH}")
 
-    for sample in tqdm(iter_samples(data_path)):
-        if not sample.labels or sum(sample.labels) == 0:
+    X_list, y_list, group = [], [], []
+    for sample in iter_samples(DATA_PATH):
+        df = feature_builder.build(sample)
+        labels = sample.labels
+
+        if not labels or sum(labels) == 0:
             continue
 
-        scores = reranker.score(sample)
+        X_list.append(df)
+        y_list.extend(labels)
+        group.append(len(df))
 
-        y_true = np.array([sample.labels])
-        y_score = np.array([scores])
+    X = pd.concat(X_list, ignore_index=True)
+    y = np.array(y_list, dtype=np.float32)
 
-        ndcg_list.append(ndcg_score(y_true, y_score, k=k))
+    dmatrix = xgb.DMatrix(X.values, feature_names=X.columns.tolist())
+    dmatrix.set_group(group)
 
-        baseline_scores = [c.retrieval_score for c in sample.candidates]
-        baseline_list.append(
-            ndcg_score(y_true, np.array([baseline_scores]), k=k)
-        )
+    y_pred = model.predict(dmatrix)
 
-    mean_ndcg = float(np.mean(ndcg_list))
-    mean_baseline = float(np.mean(baseline_list))
+    ndcg_scores = []
+    start = 0
+    for g in group:
+        end = start + g
+        ndcg_scores.append(ndcg_score([y[start:end]], [y_pred[start:end]], k=k))
+        start = end
 
-    # MLflow 기록
-    mlflow.log_metric(f"ndcg_{k}", mean_ndcg)
-    mlflow.log_metric(f"baseline_ndcg_{k}", mean_baseline)
-    mlflow.log_metric(
-        f"ndcg_improvement_pct_{k}",
-        (mean_ndcg - mean_baseline) / mean_baseline * 100
-    )
+    mean_ndcg = float(np.mean(ndcg_scores))
+    print(f"[Metric] train_ndcg@{k} = {mean_ndcg:.4f}")
 
+    mlflow.set_experiment(EXPERIMENT_NAME)
+    with mlflow.start_run(run_name=f"eval_xgb_ndcg_k{k}"):
+        mlflow.log_metric(f"train_ndcg_{k}", mean_ndcg)
+        mlflow.xgboost.log_model(model, artifact_path="model")
 
-    print("=" * 40)
-    print(f"NDCG@{k} (baseline): {mean_baseline:.4f}")
-    print(f"NDCG@{k} (XGB)     : {mean_ndcg:.4f}")
-    print(f"Improvement (%)  : {(mean_ndcg - mean_baseline) / mean_baseline * 100:.2f}%")
-    print("=" * 40)
-
+    print("[OK] NDCG evaluation logged to MLflow")
     return mean_ndcg
 
 
 if __name__ == "__main__":
-    VALID_PATH = "backend/ml/data/processed/retrieval_candidates_valid.jsonl"
-    MODEL_PATH = "backend/ml/model/reranking/xgb_ranker.pkl"
-
-    mlflow.set_experiment("reranker-xgboost")
-    with mlflow.start_run(run_name="baseline(max_depth=3)_eval"):
-        evaluate(VALID_PATH, MODEL_PATH, k=10)
+    evaluate_ndcg(k=5)
