@@ -1,5 +1,5 @@
 import pandas as pd
-from item_ranker.dataset import RerankSample
+from item_ranker.dataset.base import RerankSample
 
 class TreeFeatureBuilder:
     FEATURE_NAMES = [

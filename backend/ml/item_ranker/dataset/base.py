@@ -1,18 +1,6 @@
 import json
-import pandas as pd
 from dataclasses import dataclass
 from typing import List, Optional, Generator
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parents[2]
-ITEM_FEAT_PATH = BASE_DIR / "data/cleaned/item_v1/item_v1.csv"
-
-if ITEM_FEAT_PATH.exists():
-    ITEM_FEAT_DF = pd.read_csv(ITEM_FEAT_PATH).fillna(0)
-    ITEM_FEAT_MAP = ITEM_FEAT_DF.set_index("parent_asin").to_dict(orient="index")
-else:
-    ITEM_FEAT_MAP = {}
-    print(f"[WARN] item feature not found: {ITEM_FEAT_PATH}")
 
 
 @dataclass
@@ -42,28 +30,24 @@ def iter_samples(
             row = json.loads(line)
 
             target_id = row.get("parent_asin")
+
             keywords = [
                 str(k).lower()
                 for k in row.get("keywords", [])
                 if isinstance(k, str)
             ]
 
-            candidates, labels = [], []
+            candidates = []
+            labels = []
 
             for c in row.get("candidates", []):
                 item_id = c["item_asin"]
-                item_feat = ITEM_FEAT_MAP.get(item_id, {})
-
-                metadata = {
-                    **c,
-                    **item_feat,
-                }
 
                 candidates.append(
                     Candidate(
                         item_id=item_id,
                         retrieval_score=float(c.get("score", 0.0)),
-                        metadata=metadata,
+                        metadata=c,
                     )
                 )
 

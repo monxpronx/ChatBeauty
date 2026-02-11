@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import ndcg_score
 from item_ranker.features.tree import TreeFeatureBuilder
-from item_ranker.dataset import iter_samples
+from item_ranker.dataset.base import iter_samples
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH = os.path.join(BASE_DIR, "data", "evaluation", "retrieval_candidates_train.jsonl")
