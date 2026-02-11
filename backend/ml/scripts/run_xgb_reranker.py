@@ -18,21 +18,27 @@ def run_experiment(run_name: str):
     feature_builder = TreeFeatureBuilder(ITEM_FEAT_PATH)
 
     with mlflow.start_run(run_name=run_name):
-        model, params = train_reranker_xgb(
+        model, params, evals_result = train_reranker_xgb(
             train_path=TRAIN_PATH,
             valid_path=VALID_PATH,
             model_path=model_path,
             feature_builder=feature_builder,
         )
 
+        best_iter = model.best_iteration
+
+        best_ndcg_5 = evals_result["valid"]["ndcg@5"][best_iter]
+        best_ndcg_10 = evals_result["valid"]["ndcg@10"][best_iter]
+
         mlflow.log_params(params)
         mlflow.log_param("model_type", "xgboost")
         mlflow.log_param("num_features", len(feature_builder.FEATURE_NAMES))
-        mlflow.log_param("best_iteration", model.best_iteration)
-        mlflow.log_metric("best_valid_ndcg_10", model.best_score)
+        mlflow.log_param("best_iteration", best_iter)
+
+        mlflow.log_metric("best_valid_ndcg_5", best_ndcg_5)
+        mlflow.log_metric("best_valid_ndcg_10", best_ndcg_10)
 
         mlflow.xgboost.log_model(model, artifact_path="model")
-
 
 def main():
     mlflow.set_experiment("Reranker_XGB_Current_Features")
