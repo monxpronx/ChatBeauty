@@ -3,6 +3,7 @@ from item_ranker.dataset.base import RerankSample
 
 class TreeFeatureBuilder:
     FEATURE_NAMES = [
+        "retrieval_score",
         "review_cnt",
         "vp_review_cnt",
         "vp_ratio",
@@ -26,6 +27,7 @@ class TreeFeatureBuilder:
             csv_feat = self.item_feat_map.get(parent_asin, {})
 
             row = {
+                "retrieval_score": float(c.retrieval_score),
                 "review_cnt": float(csv_feat.get("review_cnt", 0)),
                 "vp_review_cnt": float(csv_feat.get("vp_review_cnt", 0)),
                 "vp_ratio": float(csv_feat.get("vp_ratio", 0.0)),
